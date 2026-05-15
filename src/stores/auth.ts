@@ -1,6 +1,4 @@
 // stores/auth.ts
-import { defineStore } from 'pinia'
-
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         user: null,
@@ -10,8 +8,6 @@ export const useAuthStore = defineStore('auth', {
 
     actions: {
         setLoginData(user: any, token: string) {
-            console.log('📦 setLoginData called:', { user, token: token?.substring(0, 20) + '...' })
-
             this.user = user
             this.token = token
             this.isLoggedIn = true
@@ -20,7 +16,6 @@ export const useAuthStore = defineStore('auth', {
                 localStorage.setItem('auth_user', JSON.stringify(user))
                 localStorage.setItem('auth_token', token)
                 localStorage.setItem('isLoggedIn', 'true')
-                console.log('💾 Data saved to localStorage')
             }
         },
 
@@ -49,13 +44,10 @@ export const useAuthStore = defineStore('auth', {
                 const token = localStorage.getItem('auth_token')
                 const isLoggedIn = localStorage.getItem('isLoggedIn')
 
-                console.log('🔄 restoreSession:', { hasUser: !!user, hasToken: !!token, isLoggedIn })
-
                 if (user && token && isLoggedIn === 'true') {
                     this.user = JSON.parse(user)
                     this.token = token
                     this.isLoggedIn = true
-                    console.log('✅ Session restored, token:', token.substring(0, 20) + '...')
                     return true
                 }
             }

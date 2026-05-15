@@ -1,766 +1,843 @@
 <template>
     <div class="master-browse">
-        <!-- Header Card -->
+        <!-- Header Section -->
         <div class="browse-header">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div class="flex items-center gap-4">
-                    <div class="header-icon">
-                        <i class="pi pi-database text-2xl"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-surface-900 dark:text-surface-0">
-                            {{ title }} Management
-                        </h2>
-                        <div class="flex items-center gap-3 mt-1">
-                            <span class="text-sm text-muted-color">
-                                Total: <strong>{{ pagination.total }}</strong> records
-                            </span>
-                            <span class="w-1 h-1 bg-surface-400 rounded-full"></span>
-                            <span class="text-sm text-muted-color">
-                                Page {{ pagination.page }} of {{ pagination.lastPage }}
-                            </span>
-                        </div>
-                    </div>
+            <div class="header-left">
+                <div class="header-icon">
+                    <i :class="['pi', config.icon || 'pi-database']"></i>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <Button 
-                        label="Export" 
-                        icon="pi pi-download" 
-                        severity="secondary" 
-                        size="small" 
-                        @click="exportData"
-                    />
-                    <Button 
-                        label="Import" 
-                        icon="pi pi-upload" 
-                        severity="secondary" 
-                        size="small" 
-                        @click="importDialog = true"
-                    />
-                    <Button 
-                        label="Tambah" 
-                        icon="pi pi-plus" 
-                        severity="primary" 
-                        size="small" 
-                        @click="openAddForm" 
-                    />
+                <div class="header-text">
+                    <h1 class="header-title">{{ config.title }}</h1>
+                    <p class="header-subtitle">{{ config.subtitle || `Kelola data master ${config.title.toLowerCase()}` }}</p>
                 </div>
+            </div>
+            <div class="header-actions">
+                <Button 
+                    icon="pi pi-plus" 
+                    label="Tambah" 
+                    severity="primary" 
+                    size="small"
+                    @click="openAddForm" 
+                />
             </div>
         </div>
 
-        <!-- Main Card -->
+        <!-- Card Content -->
         <div class="browse-card">
             <!-- Toolbar -->
             <div class="browse-toolbar">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <!-- Bulk Actions -->
+                <div class="toolbar-left">
+                    <!-- GLOBAL SEARCH (LIKE %keyword%) -->
+                    <IconField iconPosition="left">
+                        <InputIcon class="pi pi-search" />
+                        <InputText 
+                            v-model="searchKeyword" 
+                            placeholder="Cari semua kolom..." 
+                            size="small"
+                            class="search-input"
+                            @input="onSearchInput"
+                        />
+                    </IconField>
+                    
+                    <div v-if="selectedItems.length > 0" class="bulk-info">
+                        <span>{{ selectedItems.length }} terpilih</span>
                         <Button 
-                            label="Hapus" 
                             icon="pi pi-trash" 
                             severity="danger" 
-                            size="small" 
-                            :disabled="selectedItems.length === 0" 
-                            @click="bulkDelete"
-                        />
-                        
-                        <!-- Filter Toggle -->
-                        <Button 
-                            icon="pi pi-filter" 
-                            severity="secondary" 
                             text 
-                            size="small" 
-                            :class="{ 'active-filter': hasActiveFilters }"
-                            @click="showFilters = !showFilters"
-                        />
-                        
-                        <!-- Active Filters Indicator -->
-                        <div v-if="hasActiveFilters" class="active-filters">
-                            <Tag 
-                                v-for="(value, key) in activeFilters" 
-                                :key="key"
-                                :value="`${key}: ${value}`"
-                                severity="info"
-                                size="small"
-                                removable
-                                @remove="removeFilter(key)"
-                            />
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-2">
-                        <!-- View Toggle -->
-                        <SelectButton 
-                            v-model="viewMode" 
-                            :options="viewOptions" 
-                            optionLabel="icon" 
-                            optionValue="value"
                             size="small"
+                            @click="confirmBulkDelete" 
                         />
-                        
-                        <!-- Search -->
-                        <IconField iconPosition="left" class="search-field">
-                            <InputIcon><i class="pi pi-search" /></InputIcon>
-                            <InputText 
-                                v-model="globalSearch" 
-                                placeholder="Search..." 
-                                @input="onGlobalSearch" 
-                                size="small" 
-                                class="search-input"
-                            />
-                        </IconField>
-                        
-                        <!-- Refresh -->
+                    </div>
+
+                    <!-- Active Multi-Select Filters Indicator -->
+                    <div v-if="activeMultiSelectFiltersCount > 0" class="active-filters">
+                        <i class="pi pi-filter-fill"></i>
+                        <span>{{ activeMultiSelectFiltersCount }} filter checklist</span>
                         <Button 
-                            icon="pi pi-refresh" 
-                            severity="secondary" 
+                            icon="pi pi-times" 
                             text 
                             rounded 
-                            size="small" 
-                            @click="fetchData"
-                            v-tooltip="'Refresh'"
+                            size="small"
+                            severity="secondary"
+                            @click="clearAllColumnFilters" 
+                        />
+                    </div>
+                    
+                    <!-- Active Text Filters Indicator -->
+                    <div v-if="activeTextFiltersCount > 0" class="active-filters text-filters-active">
+                        <i class="pi pi-pencil"></i>
+                        <span>{{ activeTextFiltersCount }} filter teks</span>
+                        <Button 
+                            icon="pi pi-times" 
+                            text 
+                            rounded 
+                            size="small"
+                            severity="secondary"
+                            @click="clearAllTextFilters" 
                         />
                     </div>
                 </div>
-
-                <!-- Filter Panel -->
-                <Transition name="slide-down">
-                    <div v-if="showFilters" class="filter-panel">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                            <div v-for="col in filterableColumns" :key="col.field">
-                                <label class="text-xs font-medium mb-1 block">{{ col.header }}</label>
-                                <InputText 
-                                    v-model="filters[col.field]" 
-                                    :placeholder="`Filter ${col.header}...`"
-                                    size="small"
-                                    class="w-full"
-                                    @input="onFilterChange"
-                                />
-                            </div>
-                        </div>
-                        <div class="flex justify-end gap-2 mt-3">
-                            <Button label="Clear All" size="small" text @click="clearAllFilters" />
-                            <Button label="Apply" size="small" severity="primary" @click="applyFilters" />
-                        </div>
-                    </div>
-                </Transition>
+                
+                <div class="toolbar-right">
+                    <Button 
+                        icon="pi pi-refresh" 
+                        severity="secondary" 
+                        text 
+                        size="small"
+                        :loading="loading"
+                        @click="fetchData" 
+                    />
+                    <Button 
+                        icon="pi pi-pencil" 
+                        severity="secondary" 
+                        text 
+                        size="small"
+                        :class="{ 'filter-active': activeTextFiltersCount > 0 }"
+                        @click="showTextFilterDrawer = true" 
+                        v-tooltip="'Filter Teks Per Kolom'"
+                    />
+                </div>
             </div>
-            
+
             <!-- DataTable -->
             <DataTable 
-                :value="items" 
                 v-model:selection="selectedItems"
+                v-model:expandedRows="expandedRows"
+                :value="items" 
+                :dataKey="config.primaryKey"
                 :loading="loading"
-                @sort="onSort"
-                stripedRows
-                removableSort
-                responsiveLayout="scroll"
-                size="small"
                 :sortField="sortField"
                 :sortOrder="sortOrder"
-                dataKey="id"
-                :rowHover="true"
+                @sort="onSort"
+                @rowExpand="onRowExpand"
+                @rowCollapse="onRowCollapse"
+                stripedRows
+                responsiveLayout="scroll"
+                size="small"
                 class="browse-table"
             >
-                <Column selectionMode="multiple" style="width: 3rem" />
+                <template #empty>
+                    <div class="empty-state">
+                        <i class="pi pi-inbox"></i>
+                        <p>Tidak ada data ditemukan</p>
+                        <Button 
+                            v-if="activeMultiSelectFiltersCount > 0 || activeTextFiltersCount > 0 || searchKeyword"
+                            label="Reset Filter & Pencarian" 
+                            text 
+                            size="small"
+                            @click="resetAllFiltersAndSearch" 
+                        />
+                    </div>
+                </template>
+
+                <template #loading>
+                    <div class="loading-state">
+                        <i class="pi pi-spinner pi-spin"></i>
+                        <p>Memuat data...</p>
+                    </div>
+                </template>
+
+                <!-- Column Expander (Conditional) -->
+                <Column v-if="config.expansion?.enabled" expander style="width: 3rem" />
                 
+                <Column selectionMode="multiple" style="width: 3rem" />
+
                 <Column 
-                    v-for="col in columns" 
-                    :key="col.field"
-                    :field="col.field"
-                    :header="col.header"
+                    v-for="col in visibleColumns" 
+                    :key="col.field" 
+                    :field="col.field" 
                     :sortable="col.sortable !== false"
-                    :style="{ minWidth: col.width, maxWidth: col.maxWidth }"
+                    :style="{ minWidth: col.minWidth || '120px', textAlign: col.align || 'left' }"
                 >
+                    <template #header>
+                        <div class="column-header">
+                            <span class="column-title">{{ col.header }}</span>
+                            
+                            <!-- Multi-Select Filter Icon -->
+                            <Button 
+                                icon="pi pi-filter" 
+                                text 
+                                rounded 
+                                size="small"
+                                :class="{ 'filter-active': hasColumnFilter(col.field) }"
+                                @click.stop="toggleColumnFilter(col, $event)"
+                            />
+                            
+                            <!-- OverlayPanel - Multi-select -->
+                            <OverlayPanel 
+                                :ref="(el) => setFilterOverlayRef(col.field, el)"
+                                @hide="onFilterPanelHide(col.field)"
+                            >
+                                <div class="filter-panel">
+                                    <div class="filter-panel-header">
+                                        <span>Filter {{ col.header }}</span>
+                                        <Button 
+                                            icon="pi pi-times" 
+                                            text 
+                                            rounded 
+                                            size="small"
+                                            @click="closeFilterPanel(col.field)" 
+                                        />
+                                    </div>
+                                    
+                                    <!-- Search dalam filter -->
+                                    <div class="filter-panel-search">
+                                        <IconField iconPosition="left">
+                                            <InputIcon class="pi pi-search" />
+                                            <InputText 
+                                                v-model="filterSearchTerms[col.field]" 
+                                                placeholder="Cari nilai..." 
+                                                size="small"
+                                                class="w-full"
+                                            />
+                                        </IconField>
+                                    </div>
+
+                                    <!-- Actions -->
+                                    <div class="filter-panel-actions">
+                                        <Button 
+                                            label="Pilih Semua" 
+                                            text 
+                                            size="small"
+                                            @click="selectAllFilterOptions(col.field)" 
+                                        />
+                                        <Button 
+                                            label="Bersihkan" 
+                                            text 
+                                            size="small"
+                                            @click="clearFilterOptions(col.field)" 
+                                        />
+                                    </div>
+
+                                    <!-- List Options -->
+                                    <div class="filter-panel-list">
+                                        <div v-if="filterOptionsLoading[col.field]" class="filter-loading">
+                                            <i class="pi pi-spinner pi-spin"></i>
+                                            <span>Memuat nilai filter...</span>
+                                        </div>
+                                        
+                                        <div 
+                                            v-else
+                                            v-for="option in getFilteredOptions(col.field)" 
+                                            :key="option.value"
+                                            class="filter-option"
+                                        >
+                                            <Checkbox 
+                                                v-model="tempFilters[col.field]"
+                                                :value="option.value"
+                                                :inputId="`filter-${col.field}-${option.value}`"
+                                            />
+                                            <label :for="`filter-${col.field}-${option.value}`" class="filter-label">
+                                                <span>{{ option.label }}</span>
+                                                <span class="option-count">({{ option.count }})</span>
+                                            </label>
+                                        </div>
+                                        
+                                        <div v-if="getFilteredOptions(col.field).length === 0 && !filterOptionsLoading[col.field]" class="filter-empty">
+                                            Tidak ada nilai
+                                        </div>
+                                    </div>
+
+                                    <!-- Footer -->
+                                    <div class="filter-panel-footer">
+                                        <Button 
+                                            label="Terapkan" 
+                                            severity="primary" 
+                                            size="small"
+                                            class="w-full"
+                                            @click="applyColumnFilter(col.field)" 
+                                        />
+                                    </div>
+                                </div>
+                            </OverlayPanel>
+                        </div>
+                    </template>
+
                     <template #body="slotProps">
-                        <!-- Currency -->
-                        <span v-if="col.type === 'currency'" class="font-medium">
-                            {{ formatCurrency(slotProps.data[col.field]) }}
-                        </span>
-                        
-                        <!-- Status Badge -->
+                        <!-- Boolean -->
                         <Tag 
-                            v-else-if="col.type === 'status'"
-                            :value="slotProps.data[col.field]"
-                            :severity="getStatusSeverity(slotProps.data[col.field])"
+                            v-if="col.type === 'boolean'"
+                            :value="slotProps.data[col.field] ? (col.booleanLabels?.true || 'Ya') : (col.booleanLabels?.false || 'Tidak')"
+                            :severity="slotProps.data[col.field] ? 'success' : 'secondary'"
                             size="small"
                         />
-                        
-                        <!-- Date -->
-                        <span v-else-if="col.type === 'date'" class="text-sm">
-                            {{ formatDate(slotProps.data[col.field]) }}
+
+                        <!-- Currency -->
+                        <span v-else-if="col.type === 'currency'" class="currency-text">
+                            {{ formatCurrency(slotProps.data[col.field]) }}
                         </span>
-                        
+
+                        <!-- Number -->
+                        <span v-else-if="col.type === 'number'" class="number-text">
+                            {{ slotProps.data[col.field]?.toLocaleString('id-ID') || '-' }}
+                        </span>
+
                         <!-- Default -->
-                        <span v-else class="text-sm">
+                        <span v-else>
                             {{ slotProps.data[col.field] || '-' }}
                         </span>
                     </template>
                 </Column>
-                
-                <!-- Actions Column -->
-                <Column header="Actions" style="width: 6rem">
+
+                <Column header="Aksi" style="width: 6rem; text-align: center">
                     <template #body="slotProps">
-                        <div class="flex gap-1">
-                            <Button 
-                                icon="pi pi-eye" 
-                                severity="secondary" 
-                                text 
-                                rounded 
-                                size="small" 
-                                @click="viewDetail(slotProps.data)"
-                                v-tooltip="'View'"
-                            />
+                        <div class="action-buttons">
                             <Button 
                                 icon="pi pi-pencil" 
-                                severity="success" 
                                 text 
                                 rounded 
-                                size="small" 
-                                @click="openEditForm(slotProps.data)"
-                                v-tooltip="'Edit'"
+                                size="small"
+                                severity="info"
+                                @click="openEditForm(slotProps.data)" 
                             />
                             <Button 
                                 icon="pi pi-trash" 
-                                severity="danger" 
                                 text 
                                 rounded 
-                                size="small" 
-                                @click="confirmDelete(slotProps.data)"
-                                v-tooltip="'Delete'"
+                                size="small"
+                                severity="danger"
+                                @click="confirmDelete(slotProps.data)" 
                             />
                         </div>
                     </template>
                 </Column>
+
+                <!-- Row Expansion Template (Conditional) -->
+                <template v-if="config.expansion?.enabled" #expansion="slotProps">
+                    <div class="expansion-content">
+                        <div class="expansion-header">
+                            <div class="expansion-header-left">
+                                <i class="pi pi-info-circle"></i>
+                                <span class="expansion-title">
+                                    {{ config.expansion?.title || 'Detail' }} - {{ slotProps.data[config.primaryKey] }}
+                                </span>
+                                <Tag :value="slotProps.data.Nama" severity="info" size="small" />
+                            </div>
+                        </div>
+                        
+                        <!-- Loading state -->
+                        <div v-if="detailLoading[slotProps.data[config.primaryKey]]" class="detail-loading">
+                            <i class="pi pi-spinner pi-spin"></i>
+                            <span>Memuat detail...</span>
+                        </div>
+                        
+                        <!-- Detail Table -->
+                        <DataTable 
+                            v-else
+                            :value="detailData[slotProps.data[config.primaryKey]] || []" 
+                            size="small" 
+                            class="expansion-table"
+                            stripedRows
+                        >
+                            <template #empty>
+                                <div class="detail-empty">
+                                    <i class="pi pi-info-circle"></i>
+                                    <span>Tidak ada data detail</span>
+                                </div>
+                            </template>
+                            
+                            <!-- Dynamic columns dari config -->
+                            <Column 
+                                v-for="col in config.expansion?.columns || []" 
+                                :key="col.field"
+                                :field="col.field"
+                                :header="col.header"
+                                :style="{ 
+                                    width: col.width || 'auto', 
+                                    minWidth: col.minWidth || '120px',
+                                    textAlign: col.align || 'left'
+                                }"
+                            >
+                                <template v-if="col.type === 'currency'" #body="{ data }">
+                                    {{ formatCurrency(data[col.field]) }}
+                                </template>
+                                <template v-else-if="col.type === 'number'" #body="{ data }">
+                                    {{ data[col.field]?.toLocaleString('id-ID') || '-' }}
+                                </template>
+                            </Column>
+                        </DataTable>
+                    </div>
+                </template>
             </DataTable>
-            
+
             <!-- Paginator -->
             <div class="browse-paginator">
-                <div class="paginator-info">
-                    Showing {{ ((pagination.page - 1) * pagination.perPage) + 1 }} 
-                    to {{ Math.min(pagination.page * pagination.perPage, pagination.total) }} 
-                    of {{ pagination.total }} entries
-                </div>
-                
-                <div class="paginator-controls">
-                    <Button 
-                        icon="pi pi-angle-double-left" 
-                        severity="secondary" 
-                        text 
-                        rounded 
-                        size="small"
-                        :disabled="pagination.page === 1"
-                        @click="goToPage(1)"
-                    />
-                    <Button 
-                        icon="pi pi-angle-left" 
-                        severity="secondary" 
-                        text 
-                        rounded 
-                        size="small"
-                        :disabled="pagination.page === 1"
-                        @click="goToPage(pagination.page - 1)"
-                    />
-                    
-                    <div class="paginator-pages">
-                        <Button 
-                            v-for="page in visiblePages"
-                            :key="page"
-                            :label="page === -1 || page === -2 ? '...' : page.toString()"
-                            :severity="pagination.page === page ? 'primary' : 'secondary'"
-                            :text="pagination.page !== page && page !== -1 && page !== -2"
-                            rounded
-                            size="small"
-                            :disabled="page === -1 || page === -2"
-                            @click="goToPage(page)"
-                        />
-                    </div>
-                    
-                    <Button 
-                        icon="pi pi-angle-right" 
-                        severity="secondary" 
-                        text 
-                        rounded 
-                        size="small"
-                        :disabled="pagination.page === pagination.lastPage"
-                        @click="goToPage(pagination.page + 1)"
-                    />
-                    <Button 
-                        icon="pi pi-angle-double-right" 
-                        severity="secondary" 
-                        text 
-                        rounded 
-                        size="small"
-                        :disabled="pagination.page === pagination.lastPage"
-                        @click="goToPage(pagination.lastPage)"
-                    />
-                </div>
-                
-                <div class="paginator-perpage">
+                <div class="paginator-left">
                     <Select 
-                        v-model="pagination.perPage"
-                        :options="[10, 15, 25, 50, 100]"
+                        v-model="pagination.perPage" 
+                        :options="[10, 15, 25, 50]" 
                         size="small"
-                        @update:modelValue="() => { pagination.page = 1; fetchData() }"
+                        class="perpage-select"
+                        @update:modelValue="onPerPageChange"
                     />
-                    <span class="text-sm text-muted-color">per page</span>
+                    <span class="paginator-info">per halaman</span>
+                </div>
+
+                <div class="paginator-center">
+                    <Paginator 
+                        :rows="pagination.perPage" 
+                        :totalRecords="pagination.total"
+                        :rowsPerPageOptions="[10, 15, 25, 50]"
+                        @page="onPageChange"
+                        template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink"
+                        class="custom-paginator"
+                    />
+                </div>
+
+                <div class="paginator-right">
+                    <span class="total-info">{{ pagination.total }} total data</span>
                 </div>
             </div>
         </div>
-        
-        <!-- Form Dialog -->
-        <Dialog 
-            v-model:visible="formDialog" 
-            :header="dialogTitle"
-            :modal="true"
-            :style="{ width: '600px', maxWidth: '90vw' }"
-            :closable="false"
-            class="form-dialog"
+
+        <!-- Text Filter Drawer -->
+        <Drawer 
+            v-model:visible="showTextFilterDrawer" 
+            position="right" 
+            header="Filter Teks Per Kolom" 
+            class="text-filter-drawer"
         >
-            <div class="form-grid">
-                <div v-for="field in formFields" :key="field.field" class="form-field" :class="{ 'col-span-2': field.type === 'textarea' }">
-                    <label :for="field.field" class="form-label">
-                        {{ field.label }}
-                        <span v-if="field.required" class="required">*</span>
-                    </label>
-                    
-                    <!-- Text Input -->
-                    <InputText 
-                        v-if="field.type === 'text'"
-                        :id="field.field"
-                        v-model="formData[field.field]"
-                        :placeholder="field.placeholder"
-                        :required="field.required"
-                        class="w-full"
-                        size="small"
-                    />
-                    
-                    <!-- Textarea -->
-                    <Textarea 
-                        v-else-if="field.type === 'textarea'"
-                        :id="field.field"
-                        v-model="formData[field.field]"
-                        :rows="3"
-                        :placeholder="field.placeholder"
-                        class="w-full"
-                    />
-                    
-                    <!-- Number -->
-                    <InputNumber 
-                        v-else-if="field.type === 'number'"
-                        :id="field.field"
-                        v-model="formData[field.field]"
-                        :placeholder="field.placeholder"
-                        class="w-full"
-                    />
-                    
-                    <!-- Currency -->
-                    <InputNumber 
-                        v-else-if="field.type === 'currency'"
-                        :id="field.field"
-                        v-model="formData[field.field]"
-                        mode="currency"
-                        currency="IDR"
-                        locale="id-ID"
-                        :placeholder="field.placeholder"
-                        class="w-full"
-                    />
-                    
-                    <!-- Select -->
-                    <Select 
-                        v-else-if="field.type === 'select'"
-                        :id="field.field"
-                        v-model="formData[field.field]"
-                        :options="field.options"
-                        optionLabel="label"
-                        optionValue="value"
-                        :placeholder="field.placeholder"
-                        class="w-full"
-                    />
-                    
-                    <!-- Date -->
-                    <Calendar 
-                        v-else-if="field.type === 'date'"
-                        :id="field.field"
-                        v-model="formData[field.field]"
-                        dateFormat="yy-mm-dd"
-                        :placeholder="field.placeholder"
-                        class="w-full"
-                        showIcon
-                    />
+            <div class="text-filter-content">
+                <p class="text-filter-desc">
+                    Isi kata kunci untuk mencari data di kolom tertentu. 
+                    Filter ini menggunakan pencarian <strong>LIKE %kata%</strong>.
+                </p>
+                
+                <div class="text-filter-grid">
+                    <div v-for="col in visibleColumns" :key="col.field" class="text-filter-item">
+                        <label :for="`text-filter-${col.field}`">
+                            <i :class="['pi', col.icon || 'pi-circle', 'text-filter-icon']"></i>
+                            {{ col.header }}
+                        </label>
+                        <InputText 
+                            :id="`text-filter-${col.field}`"
+                            v-model="tempTextFilters[col.field]"
+                            :placeholder="`Cari ${col.header}...`"
+                            size="small"
+                            class="w-full"
+                            @keydown.enter="applyTextFilters"
+                        />
+                    </div>
                 </div>
             </div>
-            
+
             <template #footer>
-                <div class="dialog-footer">
-                    <Button label="Cancel" icon="pi pi-times" @click="formDialog = false" text size="small" />
-                    <Button label="Save" icon="pi pi-check" @click="saveData" :loading="formLoading" size="small" />
+                <div class="text-filter-footer">
+                    <Button 
+                        label="Reset" 
+                        text 
+                        size="small"
+                        icon="pi pi-times"
+                        @click="resetTempTextFilters" 
+                    />
+                    <Button 
+                        label="Terapkan" 
+                        severity="primary" 
+                        size="small"
+                        icon="pi pi-check"
+                        @click="applyTextFilters" 
+                    />
                 </div>
             </template>
-        </Dialog>
-        
+        </Drawer>
+
         <!-- Delete Dialog -->
         <Dialog 
-            v-model:visible="deleteDialog" 
-            header="Confirm Delete" 
+            v-model:visible="deleteVisible" 
+            header="Konfirmasi Hapus" 
             :modal="true"
             :style="{ width: '400px' }"
         >
-            <div class="delete-dialog-content">
-                <div class="delete-icon">
-                    <i class="pi pi-exclamation-triangle text-3xl text-yellow-500"></i>
-                </div>
-                <div class="delete-text">
-                    <h4 class="text-lg font-semibold mb-1">Are you sure?</h4>
-                    <p class="text-sm text-muted-color">
-                        This action cannot be undone. This will permanently delete the selected record(s).
-                    </p>
-                </div>
+            <div class="delete-dialog">
+                <i class="pi pi-exclamation-triangle"></i>
+                <p>Yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.</p>
             </div>
-            
             <template #footer>
-                <Button label="Cancel" icon="pi pi-times" @click="deleteDialog = false" text size="small" />
-                <Button label="Delete" icon="pi pi-trash" severity="danger" @click="deleteData" :loading="deleteLoading" size="small" />
+                <Button label="Batal" text size="small" @click="deleteVisible = false" />
+                <Button label="Hapus" severity="danger" size="small" :loading="deleteLoading" @click="handleDelete" />
             </template>
         </Dialog>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import OverlayPanel from 'primevue/overlaypanel'
+import Checkbox from 'primevue/checkbox'
+import { useMasterCrud, type MasterConfig } from '~/composables/useMasterCrud'
 import { useToast } from 'primevue/usetoast'
 
 const props = defineProps<{
-    endpoint: string
-    primaryKey: string
-    title: string
-    columns: any[]
-    formFields: any[]
+    config: MasterConfig
 }>()
 
-const { $api } = useNuxtApp()
+const router = useRouter()
 const toast = useToast()
 
-// State
-const items = ref<any[]>([])
-const selectedItems = ref<any[]>([])
-const loading = ref(false)
-const showFilters = ref(false)
-const viewMode = ref('table')
-const viewOptions = ref([
-    { icon: 'pi pi-list', value: 'table' },
-    { icon: 'pi pi-th-large', value: 'grid' }
-])
+const {
+    items,
+    selectedItems,
+    loading,
+    pagination,
+    searchKeyword,
+    tableFilters,
+    dynamicFilterOptions,
+    allDistinctValues,
+    sortField,
+    sortOrder,
+    deleteVisible,
+    deleteItem,
+    deleteLoading,
+    fetchData,
+    fetchFilterOptions,
+    fetchAllDistinctValues,
+    handleDelete,
+    formatCurrency,
+    formatDate
+} = useMasterCrud(props.config)
 
-// Search & Filters
-const globalSearch = ref('')
-const filters = reactive<Record<string, any>>({})
-let searchTimeout: NodeJS.Timeout
+// UI State
+const filterOverlays = ref<Record<string, any>>({})
+const tempFilters = ref<Record<string, any[]>>({})
+const filterSearchTerms = ref<Record<string, string>>({})
+const activeColumnFilters = ref<Record<string, any[]>>({})
+const filterOptionsLoading = ref<Record<string, boolean>>({})
+const filterOptionsCache = ref<Record<string, any[]>>({})
 
-// Pagination & Sorting
-const pagination = reactive({
-    page: 1,
-    perPage: 15,
-    total: 0,
-    lastPage: 1
-})
-const sortField = ref('')
-const sortOrder = ref<1 | -1 | null>(null)
+// Text Filter State
+const showTextFilterDrawer = ref(false)
+const tempTextFilters = ref<Record<string, string>>({})
+const activeTextFilters = ref<Record<string, string>>({})
 
-// Form
-const formDialog = ref(false)
-const formMode = ref<'add' | 'edit'>('add')
-const formData = reactive<Record<string, any>>({})
-const formLoading = ref(false)
-
-// Delete
-const deleteDialog = ref(false)
-const deleteItem = ref<any>(null)
-const deleteLoading = ref(false)
-
-// Import
-const importDialog = ref(false)
+// Row Expansion State
+const expandedRows = ref<Record<string, boolean>>({})
+const detailData = ref<Record<string, any[]>>({})
+const detailLoading = ref<Record<string, boolean>>({})
 
 // Computed
-const dialogTitle = computed(() => formMode.value === 'add' ? `Add ${props.title}` : `Edit ${props.title}`)
-
-const filterableColumns = computed(() => props.columns.filter(col => col.filterable !== false))
-
-const hasActiveFilters = computed(() => Object.keys(filters).some(key => filters[key]))
-
-const activeFilters = computed(() => {
-    const active: Record<string, any> = {}
-    Object.keys(filters).forEach(key => {
-        if (filters[key]) active[key] = filters[key]
-    })
-    return active
+const visibleColumns = computed(() => {
+    return props.config.columns.filter(col => !col.hidden)
 })
 
-const visiblePages = computed(() => {
-    const current = pagination.page
-    const last = pagination.lastPage
-    const delta = 2
-    
-    if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1)
-    
-    const range: number[] = []
-    for (let i = Math.max(2, current - delta); i <= Math.min(last - 1, current + delta); i++) {
-        range.push(i)
-    }
-    
-    if (current - delta > 2) range.unshift(-1)
-    if (current + delta < last - 1) range.push(-2)
-    
-    return [1, ...range, last]
+const activeMultiSelectFiltersCount = computed(() => {
+    return Object.keys(activeColumnFilters.value).filter(key => 
+        activeColumnFilters.value[key] && activeColumnFilters.value[key].length > 0
+    ).length
 })
 
-// Methods
-const buildQueryParams = () => {
-    const params: any = {
-        page: pagination.page,
-        per_page: pagination.perPage
+const activeTextFiltersCount = computed(() => {
+    return Object.keys(activeTextFilters.value).filter(key => 
+        activeTextFilters.value[key] && activeTextFilters.value[key].trim() !== ''
+    ).length
+})
+
+// ========== NAVIGATION METHODS ==========
+
+const openAddForm = () => {
+    const formRoute = props.config.formRoute
+    if (formRoute) {
+        router.push(formRoute)
+    } else {
+        console.warn('⚠️ No formRoute defined in config for:', props.config.title)
     }
-    
-    if (sortField.value && sortOrder.value) {
-        params.sort_by = sortField.value
-        params.sort_order = sortOrder.value === 1 ? 'asc' : 'desc'
-    }
-    
-    if (globalSearch.value) params.search = globalSearch.value
-    
-    Object.keys(filters).forEach(key => {
-        if (filters[key]) params[`filter_${key}`] = filters[key]
-    })
-    
-    return params
 }
 
-const fetchData = async () => {
-    loading.value = true
+const openEditForm = (item: any) => {
+    const formRoute = props.config.formRoute
+    const id = item[props.config.primaryKey]
+    if (formRoute) {
+        router.push(`${formRoute}?id=${id}`)
+    } else {
+        console.warn('⚠️ No formRoute defined in config for:', props.config.title)
+    }
+}
+
+// ========== FILTER OPTIONS ==========
+
+const getFilterOptionsFromAPI = async (field: string) => {
+    const col = props.config.columns.find(c => c.field === field)
+    
+    // Boolean
+    if (col?.type === 'boolean') {
+        return [
+            { value: 1, label: col.booleanLabels?.true || 'Ya', count: 0 },
+            { value: 0, label: col.booleanLabels?.false || 'Tidak', count: 0 }
+        ]
+    }
+    
+    // Config filterOptions
+    if (col?.filterOptions) {
+        return col.filterOptions.map((opt: any) => ({
+            value: opt.value,
+            label: opt.label,
+            count: opt.count || 0
+        }))
+    }
+    
+    // Dari API (dynamicFilterOptions) - untuk kolom dengan filterOptionsFrom
+    if (col?.filterOptionsFrom) {
+        const options = dynamicFilterOptions.value[col.filterOptionsFrom] || []
+        return options.map((opt: any) => ({
+            value: opt.value,
+            label: opt.label,
+            count: opt.count || 0
+        }))
+    }
+    
+    // Dari allDistinctValues (cache)
+    if (allDistinctValues.value[field]) {
+        return allDistinctValues.value[field]
+    }
+    
+    // Fallback: distinct dari items (halaman aktif)
+    return getDistinctValuesFromItems(field)
+}
+
+const getDistinctValuesFromItems = (field: string) => {
+    const values = new Map<any, number>()
+    const col = props.config.columns.find(c => c.field === field)
+    
+    items.value.forEach(item => {
+        let value = item[field]
+        if (value !== null && value !== undefined && value !== '') {
+            const key = String(value)
+            values.set(key, (values.get(key) || 0) + 1)
+        }
+    })
+    
+    return Array.from(values.entries())
+        .map(([value, count]) => {
+            let label = value
+            if (col?.type === 'currency') {
+                label = formatCurrency(parseFloat(value))
+            }
+            return { value, label, count }
+        })
+        .sort((a, b) => String(a.label).localeCompare(String(b.label)))
+}
+
+// ========== FILTER PANEL ==========
+
+const setFilterOverlayRef = (field: string, el: any) => {
+    if (el) filterOverlays.value[field] = el
+}
+
+const toggleColumnFilter = async (col: any, event: Event) => {
+    const overlay = filterOverlays.value[col.field]
+    if (overlay) {
+        // Initialize temp filters
+        if (!tempFilters.value[col.field]) {
+            tempFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]
+        }
+        
+        // Load filter options jika belum ada
+        if (!filterOptionsCache.value[col.field]) {
+            filterOptionsLoading.value[col.field] = true
+            filterOptionsCache.value[col.field] = await getFilterOptionsFromAPI(col.field)
+            filterOptionsLoading.value[col.field] = false
+        }
+        
+        overlay.toggle(event)
+    }
+}
+
+const closeFilterPanel = (field: string) => {
+    const overlay = filterOverlays.value[field]
+    if (overlay) overlay.hide()
+}
+
+const onFilterPanelHide = (field: string) => {
+    tempFilters.value[field] = [...(activeColumnFilters.value[field] || [])]
+    filterSearchTerms.value[field] = ''
+}
+
+const getFilteredOptions = (field: string) => {
+    const options = filterOptionsCache.value[field] || []
+    const searchTerm = filterSearchTerms.value[field]?.toLowerCase() || ''
+    
+    if (!searchTerm) return options
+    return options.filter(opt => String(opt.label).toLowerCase().includes(searchTerm))
+}
+
+const selectAllFilterOptions = (field: string) => {
+    const options = filterOptionsCache.value[field] || []
+    tempFilters.value[field] = options.map(opt => opt.value)
+}
+
+const clearFilterOptions = (field: string) => {
+    tempFilters.value[field] = []
+}
+
+const hasColumnFilter = (field: string) => {
+    return activeColumnFilters.value[field] && activeColumnFilters.value[field].length > 0
+}
+
+const applyColumnFilter = (field: string) => {
+    activeColumnFilters.value[field] = [...(tempFilters.value[field] || [])]
+    
+    if (activeColumnFilters.value[field].length > 0) {
+        tableFilters.value[field] = activeColumnFilters.value[field]
+    } else {
+        delete tableFilters.value[field]
+    }
+    
+    closeFilterPanel(field)
+    pagination.page = 1
+    fetchData()
+}
+
+const clearAllColumnFilters = () => {
+    activeColumnFilters.value = {}
+    Object.keys(tableFilters.value).forEach(key => {
+        if (Array.isArray(tableFilters.value[key])) {
+            delete tableFilters.value[key]
+        }
+    })
+    tempFilters.value = {}
+    pagination.page = 1
+    fetchData()
+}
+
+// ========== TEXT FILTERS ==========
+
+const resetTempTextFilters = () => {
+    visibleColumns.value.forEach(col => {
+        tempTextFilters.value[col.field] = ''
+    })
+}
+
+const clearAllTextFilters = () => {
+    activeTextFilters.value = {}
+    Object.keys(tableFilters.value).forEach(key => {
+        if (typeof tableFilters.value[key] === 'string') {
+            delete tableFilters.value[key]
+        }
+    })
+    tempTextFilters.value = {}
+    pagination.page = 1
+    fetchData()
+}
+
+const applyTextFilters = () => {
+    activeTextFilters.value = {}
+    visibleColumns.value.forEach(col => {
+        const value = tempTextFilters.value[col.field]?.trim()
+        if (value) {
+            activeTextFilters.value[col.field] = value
+        }
+    })
+    
+    Object.keys(activeTextFilters.value).forEach(field => {
+        tableFilters.value[field] = activeTextFilters.value[field]
+    })
+    
+    showTextFilterDrawer.value = false
+    pagination.page = 1
+    fetchData()
+}
+
+const resetAllFiltersAndSearch = () => {
+    searchKeyword.value = ''
+    clearAllColumnFilters()
+    clearAllTextFilters()
+}
+
+// ========== ROW EXPANSION ==========
+
+const onRowExpand = async (event: any) => {
+    if (!props.config.expansion?.enabled) return
+    
+    const rowData = event.data
+    const id = rowData[props.config.primaryKey]
+    
+    if (!detailData.value[id]) {
+        await fetchDetailData(id)
+    }
+}
+
+const onRowCollapse = (event: any) => {
+    // Optional
+}
+
+const fetchDetailData = async (id: string) => {
+    if (!props.config.expansion?.endpoint) return
+    
+    detailLoading.value[id] = true
+    
     try {
-        const params = buildQueryParams()
-        const response = await $api.get(props.endpoint, { params })
+        const { $api } = useNuxtApp()
+        const endpoint = props.config.expansion.endpoint.replace('{id}', id)
+        const response = await $api.get(endpoint)
         
         if (response.data.success) {
-            items.value = response.data.data
-            pagination.total = response.data.pagination.total
-            pagination.lastPage = response.data.pagination.last_page
-            pagination.perPage = response.data.pagination.per_page
+            detailData.value[id] = response.data.data
+        } else {
+            detailData.value[id] = []
         }
-    } catch (error: any) {
-        toast.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: error.response?.data?.message || 'Failed to fetch data',
-            life: 3000
-        })
+    } catch (error) {
+        console.error(`❌ Failed to fetch detail for ${id}:`, error)
+        detailData.value[id] = []
     } finally {
-        loading.value = false
+        detailLoading.value[id] = false
     }
 }
 
-const onGlobalSearch = () => {
+// ========== SEARCH & SORT ==========
+
+let searchTimeout: NodeJS.Timeout
+const onSearchInput = () => {
     if (searchTimeout) clearTimeout(searchTimeout)
     searchTimeout = setTimeout(() => {
         pagination.page = 1
         fetchData()
-    }, 500)
-}
-
-const onFilterChange = () => {
-    // Debounced filter
-}
-
-const applyFilters = () => {
-    pagination.page = 1
-    fetchData()
-    showFilters.value = false
-}
-
-const clearAllFilters = () => {
-    Object.keys(filters).forEach(key => delete filters[key])
-    pagination.page = 1
-    fetchData()
-    showFilters.value = false
-}
-
-const removeFilter = (key: string) => {
-    delete filters[key]
-    pagination.page = 1
-    fetchData()
+    }, 300)
 }
 
 const onSort = (event: any) => {
     sortField.value = event.sortField
-    sortOrder.value = event.sortOrder === 1 ? 1 : -1
+    sortOrder.value = event.sortOrder
+    fetchData()
+}
+
+// ========== PAGINATION ==========
+
+const onPageChange = (event: any) => {
+    pagination.page = event.page + 1
+    fetchData()
+}
+
+const onPerPageChange = () => {
     pagination.page = 1
     fetchData()
 }
 
-const goToPage = (page: number) => {
-    if (page < 1 || page > pagination.lastPage) return
-    pagination.page = page
-    fetchData()
-}
-
-const resetForm = () => {
-    Object.keys(formData).forEach(key => delete formData[key])
-    props.formFields.forEach(field => {
-        formData[field.field] = field.defaultValue || null
-    })
-}
-
-const openAddForm = () => {
-    formMode.value = 'add'
-    resetForm()
-    formDialog.value = true
-}
-
-const openEditForm = (item: any) => {
-    formMode.value = 'edit'
-    resetForm()
-    props.formFields.forEach(field => {
-        formData[field.field] = item[field.field] ?? null
-    })
-    formDialog.value = true
-}
-
-const viewDetail = (item: any) => {
-    // Navigate to detail page
-    console.log('View detail:', item)
-}
-
-const saveData = async () => {
-    formLoading.value = true
-    try {
-        let response
-        if (formMode.value === 'add') {
-            response = await $api.post(props.endpoint, formData)
-        } else {
-            const id = formData[props.primaryKey]
-            response = await $api.put(`${props.endpoint}/${id}`, formData)
-        }
-        
-        if (response.data.success) {
-            toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: `Data ${formMode.value === 'add' ? 'added' : 'updated'} successfully`,
-                life: 3000
-            })
-            formDialog.value = false
-            fetchData()
-        }
-    } catch (error: any) {
-        toast.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: error.response?.data?.message || 'Failed to save data',
-            life: 3000
-        })
-    } finally {
-        formLoading.value = false
-    }
-}
+// ========== DELETE ==========
 
 const confirmDelete = (item: any) => {
     deleteItem.value = item
-    deleteDialog.value = true
+    deleteVisible.value = true
 }
 
-const deleteData = async () => {
-    if (!deleteItem.value) return
-    deleteLoading.value = true
+const confirmBulkDelete = () => {
+    toast.add({ severity: 'warn', summary: 'Info', detail: 'Fitur hapus massal segera hadir', life: 2000 })
+}
+
+// ========== LIFECYCLE ==========
+
+onMounted(async () => {
+    // Initialize text filters
+    resetTempTextFilters()
     
-    try {
-        const id = deleteItem.value[props.primaryKey]
-        const response = await $api.delete(`${props.endpoint}/${id}`)
-        
-        if (response.data.success) {
-            toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: 'Data deleted successfully',
-                life: 3000
-            })
-            deleteDialog.value = false
-            deleteItem.value = null
-            fetchData()
-        }
-    } catch (error: any) {
-        toast.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: error.response?.data?.message || 'Failed to delete data',
-            life: 3000
-        })
-    } finally {
-        deleteLoading.value = false
+    // Fetch filter options
+    if (props.config.filterOptionsEndpoint) {
+        await fetchFilterOptions()
     }
-}
-
-const bulkDelete = async () => {
-    if (selectedItems.value.length === 0) return
+    await fetchAllDistinctValues()
     
-    const ids = selectedItems.value.map(item => item[props.primaryKey])
-    
-    try {
-        const response = await $api.post(`${props.endpoint}/bulk-delete`, { ids })
-        
-        if (response.data.success) {
-            toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: `${ids.length} items deleted successfully`,
-                life: 3000
-            })
-            selectedItems.value = []
-            fetchData()
-        }
-    } catch (error: any) {
-        toast.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: error.response?.data?.message || 'Failed to delete items',
-            life: 3000
-        })
-    }
-}
-
-const exportData = () => {
-    // Export functionality
-    toast.add({
-        severity: 'info',
-        summary: 'Export',
-        detail: 'Export feature coming soon',
-        life: 2000
-    })
-}
-
-const formatCurrency = (value: number) => {
-    if (!value && value !== 0) return '-'
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)
-}
-
-const formatDate = (value: string) => {
-    if (!value) return '-'
-    return new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-const getStatusSeverity = (status: string) => {
-    const statusMap: Record<string, string> = {
-        active: 'success',
-        inactive: 'danger',
-        pending: 'warning',
-        draft: 'secondary',
-        completed: 'success',
-        cancelled: 'danger'
-    }
-    return statusMap[status?.toLowerCase()] || 'info'
-}
-
-// Initial load
-fetchData()
+    console.log('✅ MasterBrowse ready for:', props.config.title)
+})
 </script>
 
 <style lang="scss" scoped>
@@ -770,216 +847,550 @@ fetchData()
     gap: 1rem;
 }
 
+// Header
 .browse-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 1.25rem 1.5rem;
-    background: linear-gradient(135deg, var(--primary-50) 0%, var(--surface-card) 100%);
-    border-radius: 1rem;
+    background: var(--surface-card);
+    border-radius: 0.75rem;
     border: 1px solid var(--surface-border);
 
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
     .header-icon {
-        width: 3rem;
-        height: 3rem;
-        background: var(--primary-100);
-        border-radius: 0.75rem;
+        width: 2.75rem;
+        height: 2.75rem;
+        background: var(--primary-50);
+        border-radius: 0.625rem;
         display: flex;
         align-items: center;
         justify-content: center;
         color: var(--primary-600);
+        font-size: 1.25rem;
+    }
+
+    .header-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-color);
+        margin: 0 0 0.25rem 0;
+    }
+
+    .header-subtitle {
+        font-size: 0.813rem;
+        color: var(--text-color-secondary);
+        margin: 0;
     }
 }
 
+// Card
 .browse-card {
     background: var(--surface-card);
-    border-radius: 1rem;
+    border-radius: 0.75rem;
     border: 1px solid var(--surface-border);
     overflow: hidden;
 }
 
+// Toolbar
 .browse-toolbar {
-    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--surface-border);
+    background: var(--surface-50);
 
-    .active-filter {
-        background: var(--primary-100) !important;
-        color: var(--primary-600) !important;
+    .toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
     }
 
-    .search-field {
-        .search-input {
-            width: 200px;
-            border-radius: 2rem;
-            background: var(--surface-ground);
-            border: 1px solid var(--surface-border);
-            
-            &:focus {
-                width: 260px;
-                transition: width 0.2s ease;
-            }
-        }
+    .search-input {
+        width: 280px;
+        background: var(--surface-0);
+    }
+
+    .bulk-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        background: var(--primary-50);
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        color: var(--primary-700);
     }
 
     .active-filters {
         display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+        background: var(--surface-200);
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        color: var(--text-color-secondary);
+
+        i {
+            font-size: 0.75rem;
+            color: var(--primary-600);
+        }
+        
+        &.text-filters-active {
+            background: var(--blue-100);
+            
+            i {
+                color: var(--blue-600);
+            }
+        }
+    }
+
+    .toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
     }
 }
 
-.filter-panel {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: var(--surface-ground);
-    border-radius: 0.75rem;
-}
-
+// Table
 .browse-table {
-    :deep(.p-datatable-tbody > tr > td) {
-        padding: 0.5rem 0.75rem !important;
-        font-size: 0.813rem !important;
-    }
-
     :deep(.p-datatable-thead > tr > th) {
-        padding: 0.625rem 0.75rem !important;
-        font-size: 0.75rem !important;
-        font-weight: 600 !important;
+        background: var(--surface-50);
+        font-size: 0.75rem;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.025em;
-        background: var(--surface-ground);
         color: var(--text-color-secondary);
-        border-bottom: 2px solid var(--surface-border);
+        padding: 0.625rem 0.75rem;
+        border-bottom: 1px solid var(--surface-border);
     }
 
-    :deep(.p-datatable-row:hover) {
-        background: var(--surface-hover) !important;
+    :deep(.p-datatable-tbody > tr > td) {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.813rem;
+    }
+
+    :deep(.p-datatable-tbody > tr:hover) {
+        background: var(--surface-50);
     }
 }
 
+.column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+
+    .column-title {
+        flex: 1;
+    }
+
+    .filter-active {
+        background: var(--primary-100) !important;
+        color: var(--primary-700) !important;
+    }
+}
+
+.currency-text {
+    font-weight: 600;
+    color: var(--primary-600);
+}
+
+.number-text {
+    font-weight: 500;
+}
+
+.action-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+}
+
+.empty-state,
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: var(--text-color-secondary);
+
+    i {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    p {
+        margin: 0 0 1rem 0;
+        font-size: 0.875rem;
+    }
+}
+
+// Filter Panel
+.filter-panel {
+    width: 280px;
+    max-height: 450px;
+    display: flex;
+    flex-direction: column;
+
+    .filter-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--surface-border);
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .filter-panel-search {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--surface-border);
+    }
+
+    .filter-panel-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid var(--surface-border);
+    }
+
+    .filter-panel-list {
+        flex: 1;
+        overflow-y: auto;
+        max-height: 250px;
+        padding: 0.5rem 0;
+
+        .filter-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+
+            &:hover {
+                background: var(--surface-50);
+            }
+
+            .filter-label {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-size: 0.813rem;
+                cursor: pointer;
+                margin: 0;
+
+                .option-count {
+                    color: var(--text-color-secondary);
+                    font-size: 0.75rem;
+                }
+            }
+        }
+
+        .filter-empty {
+            padding: 2rem 1rem;
+            text-align: center;
+            color: var(--text-color-secondary);
+            font-size: 0.813rem;
+        }
+        
+        .filter-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--text-color-secondary);
+            
+            i {
+                font-size: 1.5rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            span {
+                font-size: 0.813rem;
+            }
+        }
+    }
+
+    .filter-panel-footer {
+        padding: 0.75rem 1rem;
+        border-top: 1px solid var(--surface-border);
+    }
+}
+
+// Text Filter Drawer
+.text-filter-drawer {
+    :deep(.p-drawer-content) {
+        padding: 0;
+    }
+}
+
+.text-filter-content {
+    padding: 1.5rem;
+    
+    .text-filter-desc {
+        font-size: 0.813rem;
+        color: var(--text-color-secondary);
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--surface-border);
+    }
+}
+
+.text-filter-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    
+    .text-filter-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        
+        label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.813rem;
+            font-weight: 600;
+            color: var(--text-color);
+            
+            .text-filter-icon {
+                font-size: 0.875rem;
+                color: var(--primary-500);
+            }
+        }
+    }
+}
+
+.text-filter-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--surface-border);
+}
+
+// Row Expansion
+.expansion-content {
+    padding: 1.25rem 1.5rem;
+    background: var(--surface-50);
+    border-top: 1px solid var(--surface-border);
+    border-bottom: 1px solid var(--surface-border);
+    
+    .expansion-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px dashed var(--surface-border);
+        
+        .expansion-header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            
+            i {
+                font-size: 1.25rem;
+                color: var(--primary-500);
+            }
+            
+            .expansion-title {
+                font-size: 0.938rem;
+                font-weight: 600;
+                color: var(--text-color);
+            }
+        }
+    }
+    
+    .detail-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 2rem;
+        color: var(--text-color-secondary);
+    }
+    
+    .expansion-table {
+        background: var(--surface-card);
+        border-radius: 0.5rem;
+        overflow: hidden;
+        border: 1px solid var(--surface-border);
+    }
+    
+    .detail-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 2rem;
+        color: var(--text-color-secondary);
+    }
+}
+
+// Paginator
 .browse-paginator {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     border-top: 1px solid var(--surface-border);
+    background: var(--surface-50);
 
-    .paginator-info {
-        font-size: 0.813rem;
-        color: var(--text-color-secondary);
-    }
-
-    .paginator-controls {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-
-    .paginator-pages {
-        display: flex;
-        gap: 0.125rem;
-    }
-
-    .paginator-perpage {
+    .paginator-left {
         display: flex;
         align-items: center;
         gap: 0.5rem;
     }
-}
 
-.form-dialog {
-    .form-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
+    .perpage-select {
+        width: 70px;
     }
 
-    .form-field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
+    .paginator-info {
+        font-size: 0.75rem;
+        color: var(--text-color-secondary);
+    }
 
-        &.col-span-2 {
-            grid-column: span 2;
+    .custom-paginator {
+        :deep(.p-paginator) {
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+
+        :deep(.p-paginator-page),
+        :deep(.p-paginator-first),
+        :deep(.p-paginator-prev),
+        :deep(.p-paginator-next),
+        :deep(.p-paginator-last) {
+            min-width: 2rem;
+            height: 2rem;
+            font-size: 0.75rem;
         }
     }
 
-    .form-label {
-        font-size: 0.813rem;
-        font-weight: 500;
-        color: var(--text-color);
-
-        .required {
-            color: var(--red-500);
-            margin-left: 0.125rem;
-        }
+    .total-info {
+        font-size: 0.75rem;
+        color: var(--text-color-secondary);
     }
 }
 
-.delete-dialog-content {
+// Delete Dialog
+.delete-dialog {
     display: flex;
-    gap: 1rem;
-    padding: 0.5rem 0;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1rem 0;
 
-    .delete-icon {
-        flex-shrink: 0;
+    i {
+        font-size: 2.5rem;
+        color: var(--yellow-500);
+        margin-bottom: 1rem;
     }
-}
 
-.dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-}
-
-// Animations
-.slide-down-enter-active,
-.slide-down-leave-active {
-    transition: all 0.2s ease;
-}
-
-.slide-down-enter-from,
-.slide-down-leave-to {
-    opacity: 0;
-    transform: translateY(-10px);
+    p {
+        margin: 0;
+        color: var(--text-color-secondary);
+        font-size: 0.875rem;
+    }
 }
 
 // Dark mode
 :global(.app-dark) {
-    .browse-header {
-        background: linear-gradient(135deg, var(--primary-900) 0%, var(--surface-card) 100%);
-
-        .header-icon {
-            background: var(--primary-900);
-            color: var(--primary-300);
-        }
+    .browse-toolbar {
+        background: var(--surface-800);
     }
 
     .browse-table :deep(.p-datatable-thead > tr > th) {
         background: var(--surface-800);
     }
+
+    .browse-paginator {
+        background: var(--surface-800);
+    }
+
+    .bulk-info {
+        background: var(--primary-900) !important;
+        color: var(--primary-300) !important;
+    }
+
+    .active-filters {
+        background: var(--surface-700) !important;
+        
+        &.text-filters-active {
+            background: var(--blue-900) !important;
+        }
+    }
+
+    .filter-panel .filter-option:hover {
+        background: var(--surface-800);
+    }
+    
+    .expansion-content {
+        background: var(--surface-800);
+    }
 }
 
 // Responsive
-@media (max-width: 640px) {
-    .browse-paginator {
+@media (max-width: 768px) {
+    .browse-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+
+        .header-actions {
+            width: 100%;
+            
+            button {
+                width: 100%;
+            }
+        }
+    }
+
+    .browse-toolbar {
         flex-direction: column;
         align-items: stretch;
+        gap: 0.75rem;
 
-        .paginator-controls {
-            justify-content: center;
+        .search-input {
+            width: 100%;
         }
 
-        .paginator-perpage {
+        .toolbar-right {
+            justify-content: flex-end;
+        }
+    }
+
+    .browse-paginator {
+        flex-direction: column;
+        gap: 0.75rem;
+
+        .paginator-left,
+        .paginator-right {
+            width: 100%;
             justify-content: center;
         }
     }
 
-    .form-grid {
-        grid-template-columns: 1fr !important;
-
-        .col-span-2 {
-            grid-column: span 1 !important;
-        }
+    .filter-panel {
+        width: 260px;
     }
 }
 </style>

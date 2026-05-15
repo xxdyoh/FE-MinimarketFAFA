@@ -35,12 +35,15 @@ export default defineNuxtConfig({
             title: 'BSM Cabang'
         },
     },
+    router: {
+        middleware: ['tabs.global']
+    },
     pinia: {
         storesDirs: ['./stores/**'],
     },
     runtimeConfig: {
         public: {
-            apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:8000/api'
+            apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:4002/api'
         }
     },
     vite: {
