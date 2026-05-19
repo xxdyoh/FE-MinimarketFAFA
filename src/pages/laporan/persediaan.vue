@@ -8,7 +8,7 @@
                 </div>
                 <div class="header-text">
                     <h1>Laporan Persediaan Barang</h1>
-                    <p>Stok barang per gudang dengan nilai inventori</p>
+                    <!-- <p>Stok barang per gudang dengan nilai inventori</p> -->
                 </div>
             </div>
             <div class="header-actions">

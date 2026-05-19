@@ -5,7 +5,7 @@
                 <div class="header-icon"><i class="pi pi-shopping-bag"></i></div>
                 <div class="header-text">
                     <h1>Laporan Penjualan By Nota</h1>
-                    <p>Laporan penjualan dengan detail per nota</p>
+                    <!-- <p>Laporan penjualan dengan detail per nota</p> -->
                 </div>
             </div>
             <div class="header-actions">
@@ -66,8 +66,11 @@
                 stripedRows size="small" showGridlines
                 dataKey="Nomor"
                 @rowExpand="onRowExpand"
-                paginator :rows="25"
+                paginator :rows="25" :rowsPerPageOptions="[10, 25, 50, 100]"
                 sortField="Tanggal" :sortOrder="-1"
+                scrollable
+                scrollDirection="horizontal"
+                :scrollHeight="'flex'"
             >
                 <template #empty>
                     <div class="empty-state"><i class="pi pi-inbox"></i><p>Data tidak tersedia</p></div>
@@ -193,17 +196,24 @@ const exportWithDetail = ref(true)
 const exportType = ref('excel')
 
 const gridColumns = [
-    { field: 'Nomor', header: 'Nomor', width: '110px' },
-    { field: 'Tanggal', header: 'Tanggal', width: '90px' },
-    { field: 'Jam', header: 'Jam', width: '70px' },
-    { field: 'Customer', header: 'Customer', width: '160px' },
-    { field: 'Total', header: 'Total', width: '120px', align: 'right' },
-    { field: 'Cash', header: 'Cash', width: '100px', align: 'right' },
-    { field: 'Card', header: 'Card', width: '90px', align: 'right' },
-    { field: 'Piutang', header: 'Piutang', width: '110px', align: 'right' },
-    { field: 'Bayar_Piutang', header: 'Bayar Piutang', width: '110px', align: 'right' },
-    { field: 'Potongan', header: 'Potongan', width: '100px', align: 'right' },
-    { field: 'Ongkir', header: 'Ongkir', width: '90px', align: 'right' }
+    { field: 'Nomor', header: 'Nomor', width: '120px' },
+    { field: 'Tanggal', header: 'Tanggal', width: '100px' },
+    { field: 'Jam', header: 'Jam', width: '80px', align: 'center' },
+    { field: 'Customer', header: 'Customer', width: '180px' },
+    { field: 'Total', header: 'Total', width: '130px', align: 'right' },
+    { field: 'Cash', header: 'Cash', width: '110px', align: 'right' },
+    { field: 'Card', header: 'Card', width: '100px', align: 'right' },
+    { field: 'No_Card', header: 'No Card', width: '130px' },
+    { field: 'Bank', header: 'Bank', width: '120px' },
+    { field: 'Voucher', header: 'Voucher', width: '100px', align: 'right' },
+    { field: 'No_Voucher', header: 'No Voucher', width: '120px' },
+    { field: 'Piutang', header: 'Piutang', width: '120px', align: 'right' },
+    { field: 'Bayar_Piutang', header: 'Bayar Piutang', width: '130px', align: 'right' },
+    { field: 'Potongan', header: 'Potongan', width: '110px', align: 'right' },
+    { field: 'Ongkir', header: 'Ongkir', width: '100px', align: 'right' },
+    { field: 'IsPosting', header: 'Posting', width: '80px', align: 'center' },
+    { field: 'NoPosting', header: 'No Posting', width: '120px' },
+    // { field: 'Tgl_Posting', header: 'Tgl Posting', width: '110px' },
 ]
 
 const filterableColumns = [
@@ -211,7 +221,7 @@ const filterableColumns = [
     { field: 'Customer', header: 'Customer' }
 ]
 
-const currencyFields = ['Total', 'Cash', 'Card', 'Piutang', 'Bayar_Piutang', 'Potongan', 'Ongkir']
+const currencyFields = ['Total', 'Cash', 'Card', 'Voucher', 'Piutang', 'Bayar_Piutang', 'Potongan', 'Ongkir']
 
 const isCurrencyField = (field: string) => currencyFields.includes(field)
 
@@ -354,7 +364,30 @@ onMounted(() => {
 .browse-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-50); .toolbar-left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; } .search-input { width: 260px; background: var(--surface-0); } .active-filters { display: flex; align-items: center; gap: 0.375rem; padding: 0.2rem 0.5rem 0.2rem 0.75rem; background: var(--surface-200); border-radius: 1rem; font-size: 0.75rem; color: var(--text-color-secondary); i { color: var(--primary-600); } } .toolbar-right { display: flex; align-items: center; gap: 0.25rem; } .filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; } }
 .text-filter-panel { padding: 0.75rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-0); .text-filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem; } .text-filter-item label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); margin-bottom: 0.2rem; } .text-filter-footer { display: flex; justify-content: space-between; } }
 .date-filter-row { display: flex; align-items: flex-end; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-0); .date-item { display: flex; flex-direction: column; gap: 0.25rem; label { font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); text-transform: uppercase; } } }
-.report-table { :deep(.p-datatable-thead > tr > th) { background: var(--surface-50); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.025em; color: var(--text-color-secondary); padding: 0.35rem 0.5rem !important; height: 2rem !important; border-bottom: 2px solid var(--surface-border); } :deep(.p-datatable-tbody > tr > td) { padding: 0.25rem 0.5rem; font-size: 0.8rem; } }
+.report-table {
+    :deep(.p-datatable-wrapper) {
+        overflow-x: auto;
+    }
+    
+    :deep(.p-datatable-thead > tr > th) {
+        background: var(--surface-50);
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        color: var(--text-color-secondary);
+        padding: 0.35rem 0.5rem !important;
+        height: 2rem !important;
+        border-bottom: 2px solid var(--surface-border);
+        white-space: nowrap; // 🔥 Jangan wrap header
+    }
+    
+    :deep(.p-datatable-tbody > tr > td) {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        white-space: nowrap; // 🔥 Jangan wrap cell
+    }
+}
 .column-header { display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; .column-title { flex: 1; font-size: 0.7rem; } .filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; } :deep(.p-button) { width: 1.5rem !important; height: 1.5rem !important; .pi { font-size: 0.75rem !important; } } }
 .currency-text { font-weight: 600; color: var(--primary-600); }
 .filter-panel { width: 280px; max-height: 450px; display: flex; flex-direction: column; .filter-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid var(--surface-border); font-weight: 600; font-size: 0.875rem; } .filter-panel-search { padding: 0.75rem 1rem; border-bottom: 1px solid var(--surface-border); } .filter-panel-actions { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1rem; border-bottom: 1px solid var(--surface-border); } .filter-panel-list { flex: 1; overflow-y: auto; max-height: 250px; padding: 0.5rem 0; .filter-option { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; cursor: pointer; &:hover { background: var(--surface-50); } .filter-label { flex: 1; display: flex; align-items: center; justify-content: space-between; font-size: 0.813rem; cursor: pointer; margin: 0; .option-count { color: var(--text-color-secondary); font-size: 0.75rem; } } } .filter-empty { padding: 2rem 1rem; text-align: center; color: var(--text-color-secondary); font-size: 0.813rem; } } .filter-panel-footer { padding: 0.75rem 1rem; border-top: 1px solid var(--surface-border); } }

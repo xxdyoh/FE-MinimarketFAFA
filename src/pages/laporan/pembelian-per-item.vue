@@ -8,7 +8,7 @@
                 </div>
                 <div class="header-text">
                     <h1>Laporan Pembelian Per Item</h1>
-                    <p>Detail pembelian per barang dengan pivot</p>
+                    <!-- <p>Detail pembelian per barang dengan pivot</p> -->
                 </div>
             </div>
             <div class="header-actions">

@@ -3,11 +3,10 @@
         <app-topbar></app-topbar>
         <app-sidebar v-if="layoutConfig.menuMode !== 'horizontal'"></app-sidebar>
         <div class="layout-main-container">
-            <!-- Tab Bar -->
+            <!-- Tab Bar - SELALU MUNCUL -->
             <TabBar v-if="tabsStore.isReady && tabsStore.tabs.length > 0" />
             
             <div class="layout-main">
-                <!-- 🔥 NuxtPage dengan KeepAlive untuk caching -->
                 <NuxtPage keepalive :keepalive-props="{ max: 10 }" />
             </div>
             <app-footer></app-footer>
@@ -23,19 +22,16 @@ import AppFooter from './AppFooter.vue'
 import AppSidebar from './AppSidebar.vue'
 import AppTopbar from './AppTopbar.vue'
 import TabBar from '~/components/common/TabBar.vue'
-// ❌ HAPUS TabView import
 import { useLayout } from "~/layouts/composables/layout.js"
 import { useTabsStore } from '~/stores/tabs'
 
-const { layoutConfig, layoutState, isSidebarActive, resetMenu } = useLayout()
+const { layoutConfig, layoutState } = useLayout()
 const tabsStore = useTabsStore()
 
 onMounted(() => {
-    console.log('🎯 AppLayout mounted, initializing tabs...')
     tabsStore.initDefaultTabs()
 })
 
-// Container class
 const containerClass = computed(() => {
     return {
         'layout-overlay': layoutConfig.menuMode === 'overlay',
@@ -46,11 +42,6 @@ const containerClass = computed(() => {
         'layout-mobile-active': layoutState.staticMenuMobileActive
     }
 })
-
-// ... methods
-function bindOutsideClickListener() {}
-function unbindOutsideClickListener() {}
-function isOutsideClicked(event) { return false }
 </script>
 
 <style lang="scss" scoped>

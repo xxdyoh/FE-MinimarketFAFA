@@ -1,10 +1,10 @@
 import { ref } from 'vue';
 
 const model = ref([
-    {
-        label: 'Home',
-        items: [{ label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/' }]
-    },
+    // {
+    //     label: 'Home',
+    //     items: [{ label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/' }]
+    // },
     // {
     //     label: 'Master',
     //     icon: 'pi pi-database',
@@ -26,33 +26,39 @@ const model = ref([
     //         // }
     //     ]
     // },
-    {
-        label: 'Master',
-        icon: 'pi pi-database',
-        items: [
-            { label: 'Barang', icon: 'pi pi-box', to: '/master/barang' },
-            { label: 'Customer', icon: 'pi pi-users', to: '/master/customer' },
-            { label: 'Test Laporan', icon: 'pi pi-chart-bar', to: '/master/laporan-test' }  // ✅ TEST
-        ]
-    },
+    // {
+    //     label: 'Persediaan',
+    //     icon: 'pi pi-database',
+    //     items: [
+    //         { label: 'Barang', icon: 'pi pi-box', to: '/master/barang' },
+    //         // { label: 'Customer', icon: 'pi pi-users', to: '/master/customer' },
+    //         // { label: 'Test Laporan', icon: 'pi pi-chart-bar', to: '/master/laporan-test' }  // ✅ TEST
+    //     ]
+    // },
     {
         label: 'Laporan',
         icon: 'pi pi-chart-bar',
         items: [
             {
-                label: 'Persediaan',
+                label: 'Laporan Persediaan',
                 icon: 'pi pi-box',
                 to: '/laporan/persediaan'  // ✅ GANTI PATH
             },
             {
-                label: 'Pembelian',
+                label: 'Lap Pembelian by Nota',
                 icon: 'pi pi-shopping-cart',
                 to: '/laporan/pembelian'   // ✅ GANTI PATH
             },
-            { label: 'Pembelian Per Item', icon: 'pi pi-list', to: '/laporan/pembelian-per-item' },
-            { label: 'Penjualan By Nota', icon: 'pi pi-shopping-bag', to: '/laporan/penjualan' },
+            { label: 'Lap Pembelian Per Item', icon: 'pi pi-list', to: '/laporan/pembelian-per-item' },
+            { label: 'Lap Penjualan by Nota', icon: 'pi pi-shopping-bag', to: '/laporan/penjualan' },
+            { label: 'Lap Penjualan Per Item', icon: 'pi pi-list', to: '/laporan/penjualan-per-item' },
+            { label: 'Kartu Stock', icon: 'pi pi-chart-line', to: '/laporan/kartu-stock' },
         ]
-    }
+    },
+    // {
+    //     label: 'POS(Kasir)',
+    //     items: [{ label: 'POS', icon: 'pi pi-fw pi-home', to: '/pos' }]
+    // },
     // {
     //     label: 'Komisi',
     //     items: [

@@ -34,8 +34,8 @@ const handleLogout = async () => {
             </button>
             
             <router-link to="/" class="layout-topbar-logo">
-                <img src="/logo-bsm.svg" alt="Logo" class="logo-img" />
-                <span class="logo-text">BSM CABANG</span>
+                <!-- <img src="/logo-bsm.svg" alt="Logo" class="logo-img" /> -->
+                <span class="logo-text">FAFA KOSMETIK</span>
             </router-link>
         </div>
 

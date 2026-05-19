@@ -8,7 +8,7 @@
                 </div>
                 <div class="header-text">
                     <h1>Laporan Pembelian By Nota</h1>
-                    <p>Laporan pembelian dengan detail per nota</p>
+                    <!-- <p>Laporan pembelian dengan detail per nota</p> -->
                 </div>
             </div>
             <div class="header-actions">
