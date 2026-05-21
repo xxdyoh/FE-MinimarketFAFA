@@ -174,7 +174,7 @@ const authStore = useAuthStore()
 
 const loading = ref(false)
 const data = ref<any[]>([])
-const startDate = ref(new Date(new Date().setDate(new Date().getDate() - 30)))
+const startDate = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
 const endDate = ref(new Date())
 const searchKeyword = ref('')
 const showTextFilter = ref(false)
@@ -249,10 +249,22 @@ const totalMargin = computed(() => filteredData.value.reduce((s, r) => s + (pars
 const formatCurrency = (v: any) => { if (!v && v !== 0) return '-'; return 'Rp ' + Math.round(parseFloat(v)).toLocaleString('id-ID') }
 const formatNumber = (v: any) => { if (!v && v !== 0) return '-'; return Math.round(parseFloat(v)).toLocaleString('id-ID') }
 const formatPivotValue = (v: any) => pivotData.value === 'Nilai' || pivotData.value === 'Disc' || pivotData.value === 'Hpp' || pivotData.value === 'Margin' ? formatCurrency(v) : formatNumber(v)
-const formatDate = (d: Date) => d.toISOString().split('T')[0]
+const formatDate = (d: Date): string => {
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
 
 const loadData = async () => {
     loading.value = true
+    const params = {
+        start_date: formatDate(startDate.value),
+        end_date: formatDate(endDate.value)
+    }
+    console.log('📤 Sending params:', params)
+    console.log('📤 startDate value:', startDate.value)
+    console.log('📤 endDate value:', endDate.value)
     try {
         const res = await $api.get('/v1/report/penjualan-per-item', { params: { start_date: formatDate(startDate.value), end_date: formatDate(endDate.value), is_admin: isAdmin.value } })
         if (res.data.success) { data.value = res.data.data; buildFilterOptions(); buildPivot() }

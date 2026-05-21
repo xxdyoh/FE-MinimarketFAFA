@@ -129,7 +129,7 @@ const toast = useToast()
 
 const loading = ref(false)
 const data = ref<any[]>([])
-const startDate = ref(new Date(new Date().setDate(new Date().getDate() - 30)))
+const startDate = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
 const endDate = ref(new Date())
 const filterGudang = ref(null)
 const gudangList = ref<any[]>([])
@@ -188,7 +188,12 @@ const totalRpAkhir = computed(() => filteredData.value.reduce((s, r) => s + (par
 
 const formatCurrency = (v: any) => { if (!v && v !== 0) return '-'; return 'Rp ' + Math.round(parseFloat(v)).toLocaleString('id-ID') }
 const formatNumber = (v: any) => { if (!v && v !== 0) return '-'; return Math.round(parseFloat(v)).toLocaleString('id-ID') }
-const formatDate = (d: Date) => d.toISOString().split('T')[0]
+const formatDate = (d: Date): string => {
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
 
 const loadData = async () => {
     loading.value = true

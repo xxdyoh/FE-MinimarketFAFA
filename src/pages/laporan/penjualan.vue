@@ -180,7 +180,7 @@ const data = ref<any[]>([])
 const detailData = ref<Record<string, any[]>>({})
 const detailLoading = ref<Record<string, boolean>>({})
 const expandedRows = ref<Record<string, boolean>>({})
-const startDate = ref(new Date(new Date().setDate(new Date().getDate() - 30)))
+const startDate = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
 const endDate = ref(new Date())
 const searchKeyword = ref('')
 const showTextFilter = ref(false)
@@ -252,7 +252,12 @@ const formatCurrency = (val: any) => {
     return 'Rp ' + Math.round(parseFloat(val)).toLocaleString('id-ID')
 }
 
-const formatDate = (d: Date) => d.toISOString().split('T')[0]
+const formatDate = (d: Date): string => {
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
 
 const loadData = async () => {
     loading.value = true
