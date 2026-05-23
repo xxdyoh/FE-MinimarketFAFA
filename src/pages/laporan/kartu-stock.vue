@@ -69,8 +69,17 @@
                             <span class="column-title">{{ col.header }}</span>
                             <Button icon="pi pi-filter" text rounded size="small" :class="{ 'filter-active': hasColumnFilter(col.field) }" @click.stop="toggleColumnFilter(col, $event)" />
                             <OverlayPanel :ref="(el) => setFilterOverlayRef(col.field, el)" @hide="onFilterPanelHide(col.field)">
-                                <div class="filter-panel">
-                                    <div class="filter-panel-header"><span>Filter {{ col.header }}</span><Button icon="pi pi-times" text rounded size="small" @click="closeFilterPanel(col.field)" /></div>
+                                    <!-- NUMERIC FILTER (untuk kolom number/currency) -->
+                                    <NumericFilter 
+        v-if="isNumericField(col)"
+        :label="col.header"
+        :currentFilter="numericFilters[col.field]"
+        @apply="(f: any) => applyNumericFilter(col.field, f)"
+        @close="closeFilterPanel(col.field)"
+    />
+                                <!-- TEXT FILTER (untuk kolom text) -->
+<div v-else class="filter-panel">
+                                        <div class="filter-panel-header"><span>Filter {{ col.header }}</span><Button icon="pi pi-times" text rounded size="small" @click="closeFilterPanel(col.field)" /></div>
                                     <div class="filter-panel-search"><IconField iconPosition="left"><InputIcon class="pi pi-search" /><InputText v-model="filterSearchTerms[col.field]" placeholder="Cari..." size="small" class="w-full" /></IconField></div>
                                     <div class="filter-panel-actions"><Button label="Pilih Semua" text size="small" @click="selectAll(col.field)" /><Button label="Bersihkan" text size="small" @click="clearFilter(col.field)" /></div>
                                     <div class="filter-panel-list">
@@ -121,6 +130,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import OverlayPanel from 'primevue/overlaypanel'
 import Checkbox from 'primevue/checkbox'
+import NumericFilter from '~/components/report/NumericFilter.vue'
 
 definePageMeta({ layout: 'default' })
 
@@ -143,6 +153,8 @@ const tempColumnFilters = ref<Record<string, any[]>>({})
 const activeColumnFilters = ref<Record<string, any[]>>({})
 const filterSearchTerms = ref<Record<string, string>>({})
 const filterOptionsCache = ref<Record<string, any[]>>({})
+
+const numericFilters = ref<Record<string, any>>({})
 
 const exportDialog = ref(false)
 const exportType = ref('excel')
@@ -173,13 +185,44 @@ const filterableColumns = [
     { field: 'Kategori', header: 'Kategori' },
 ]
 
-const activeFiltersCount = computed(() => Object.keys(activeColumnFilters.value).filter(k => activeColumnFilters.value[k]?.length > 0).length + Object.keys(activeTextFilters.value).filter(k => activeTextFilters.value[k]?.trim()).length)
+const isNumericField = (col: any) => col.type === 'number' || col.type === 'currency' || isCurrencyField(col.field)
+
+const applyNumericFilter = (field: string, filter: any) => {
+    if (filter) { numericFilters.value[field] = filter }
+    else { delete numericFilters.value[field] }
+    closeFilterPanel(field)
+}
+
+const activeFiltersCount = computed(() => {
+    return Object.keys(activeColumnFilters.value).filter(k => activeColumnFilters.value[k]?.length > 0).length +
+           Object.keys(activeTextFilters.value).filter(k => activeTextFilters.value[k]?.trim()).length +
+           Object.keys(numericFilters.value).length
+})
 
 const filteredData = computed(() => {
     let r = [...data.value]
     if (searchKeyword.value) { const kw = searchKeyword.value.toLowerCase(); r = r.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(kw))) }
     Object.keys(activeColumnFilters.value).forEach(f => { const v = activeColumnFilters.value[f]; if (v?.length > 0) r = r.filter(row => v.includes(String(row[f]))) })
     Object.keys(activeTextFilters.value).forEach(f => { const v = activeTextFilters.value[f]?.toLowerCase(); if (v) r = r.filter(row => String(row[f]||'').toLowerCase().includes(v)) })
+    Object.keys(numericFilters.value).forEach(field => {
+        const filter = numericFilters.value[field]
+        if (!filter) return
+        r = r.filter(row => {
+            const val = parseFloat(row[field]) || 0
+            const v1 = parseFloat(filter.value1) || 0
+            const v2 = parseFloat(filter.value2) || 0
+            switch (filter.operator) {
+                case 'eq': return val === v1
+                case 'neq': return val !== v1
+                case 'gt': return val > v1
+                case 'gte': return val >= v1
+                case 'lt': return val < v1
+                case 'lte': return val <= v1
+                case 'between': return val >= v1 && val <= v2
+                default: return true
+            }
+        })
+    })
     return r
 })
 
@@ -212,7 +255,7 @@ const loadGudang = async () => {
 
 const resetTextFilters = () => { filterableColumns.forEach(c => textFilters.value[c.field] = ''); activeTextFilters.value = {} }
 const applyTextFilters = () => { activeTextFilters.value = {}; filterableColumns.forEach(c => { if (textFilters.value[c.field]?.trim()) activeTextFilters.value[c.field] = textFilters.value[c.field].trim() }) }
-const clearAllFilters = () => { searchKeyword.value = ''; activeColumnFilters.value = {}; activeTextFilters.value = {}; textFilters.value = {}; tempColumnFilters.value = {} }
+const clearAllFilters = () => { searchKeyword.value = ''; activeColumnFilters.value = {}; activeTextFilters.value = {}; textFilters.value = {}; tempColumnFilters.value = {}; numericFilters.value = {} }
 const buildFilterOptions = () => { filterableColumns.forEach(col => { const vals = new Map<string, number>(); data.value.forEach(r => { const v = String(r[col.field] || ''); if (v) vals.set(v, (vals.get(v) || 0) + 1) }); filterOptionsCache.value[col.field] = Array.from(vals.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label)) }) }
 const setFilterOverlayRef = (f: string, el: any) => { if (el) filterOverlays.value[f] = el }
 const toggleColumnFilter = (col: any, e: Event) => { const o = filterOverlays.value[col.field]; if (o) { if (!tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]; o.toggle(e) } }
@@ -223,6 +266,17 @@ const selectAll = (f: string) => { tempColumnFilters.value[f] = (filterOptionsCa
 const clearFilter = (f: string) => { tempColumnFilters.value[f] = [] }
 const hasColumnFilter = (f: string) => activeColumnFilters.value[f]?.length > 0
 const applyColumnFilter = (f: string) => { activeColumnFilters.value[f] = [...(tempColumnFilters.value[f] || [])]; closeFilterPanel(f) }
+
+const openColumnFilter = (col: any, event: Event) => {
+    const overlay = filterOverlays.value[col.field]
+    if (overlay) {
+        if (!isNumericField(col)) {
+            if (!tempColumnFilters.value[col.field]) 
+                tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]
+        }
+        overlay.toggle(event)
+    }
+}
 
 // Export
 const exportExcel = () => { exportType.value = 'excel'; exportDialog.value = true }
@@ -286,8 +340,56 @@ onMounted(() => { resetTextFilters(); loadGudang(); loadData() })
 .browse-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-50); .toolbar-left { display: flex; align-items: center; gap: 0.75rem; } .search-input { width: 260px; } .active-filters { display: flex; align-items: center; gap: 0.375rem; padding: 0.2rem 0.75rem; background: var(--surface-200); border-radius: 1rem; font-size: 0.75rem; } .toolbar-right { display: flex; align-items: center; gap: 0.25rem; } .filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; } }
 .text-filter-panel { padding: 0.75rem; border-bottom: 1px solid var(--surface-border); .text-filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem; } .text-filter-item label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); } .text-filter-footer { display: flex; justify-content: space-between; } }
 .date-filter-row { display: flex; align-items: flex-end; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--surface-border); .date-item { display: flex; flex-direction: column; gap: 0.25rem; label { font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); text-transform: uppercase; } } }
-.report-table { :deep(.p-datatable-thead > tr > th) { background: var(--surface-50); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 0.35rem 0.5rem !important; height: 2rem !important; border-bottom: 2px solid var(--surface-border); white-space: nowrap; } :deep(.p-datatable-tbody > tr > td) { padding: 0.25rem 0.5rem; font-size: 0.78rem; white-space: nowrap; } :deep(.p-datatable-table) { min-width: 1400px; } }
-.column-header { display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; .column-title { flex: 1; font-size: 0.7rem; } .filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; } :deep(.p-button) { width: 1.5rem !important; height: 1.5rem !important; .pi { font-size: 0.75rem !important; } } }
+.report-table {
+    :deep(.p-datatable-wrapper) { overflow-x: auto !important; }
+    :deep(.p-datatable-thead > tr > th) {
+        background: var(--surface-50);
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+        padding: 0.35rem 0.5rem !important; height: 2rem !important;
+        border-bottom: 2px solid var(--surface-border);
+        white-space: nowrap;
+    }
+    :deep(.p-datatable-tbody > tr > td) {
+        padding: 0.25rem 0.5rem; font-size: 0.8rem;
+        white-space: nowrap;
+    }
+    :deep(.p-datatable-table) { min-width: 1300px; } // Sesuaikan per laporan
+}
+.column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+    width: 100%;
+
+    .column-title {
+        flex: 1;
+        font-size: 0.7rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .filter-active {
+        opacity: 1 !important;
+        background: var(--primary-100) !important;
+        color: var(--primary-700) !important;
+    }
+
+    :deep(.p-button) {
+        width: 1.5rem !important;
+        height: 1.5rem !important;
+        flex-shrink: 0;
+        margin-left: auto;
+        opacity: 0;
+        transition: opacity 0.15s;
+        .pi { font-size: 0.75rem !important; }
+    }
+
+    &:hover :deep(.p-button) {
+        opacity: 1;
+    }
+}
 .currency-text { font-weight: 600; color: var(--primary-600); }
 .number-text { font-weight: 500; }
 .footer-summary-row { display: flex; justify-content: flex-end; gap: 1.5rem; padding: 0.4rem 0.75rem; .footer-value { font-weight: 700; font-size: 0.8rem; } }

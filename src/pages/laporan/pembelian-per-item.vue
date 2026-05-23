@@ -832,7 +832,41 @@ onMounted(async () => {
 }
 
 // Column Header
-.column-header { display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; .column-title { flex: 1; font-size: 0.7rem; } .filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; } :deep(.p-button) { width: 1.5rem !important; height: 1.5rem !important; .pi { font-size: 0.75rem !important; } } }
+.column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+    width: 100%;
+
+    .column-title {
+        flex: 1;
+        font-size: 0.7rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .filter-active {
+        opacity: 1 !important;
+        background: var(--primary-100) !important;
+        color: var(--primary-700) !important;
+    }
+
+    :deep(.p-button) {
+        width: 1.5rem !important;
+        height: 1.5rem !important;
+        flex-shrink: 0;
+        margin-left: auto;
+        opacity: 0;
+        transition: opacity 0.15s;
+        .pi { font-size: 0.75rem !important; }
+    }
+
+    &:hover :deep(.p-button) {
+        opacity: 1;
+    }
+}
 
 .currency-text { font-weight: 600; color: var(--primary-600); }
 

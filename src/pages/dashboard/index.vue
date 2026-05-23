@@ -222,169 +222,23 @@ watch([getPrimary, getSurface, isDarkTheme], () => {
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">
-                        Welcome back, {{ authStore.user?.name || 'User' }}! 👋
+                        Welcome back! 👋
                     </h1>
-                    <p class="text-muted-color mt-1">
+                    <!-- <p class="text-muted-color mt-1">
                         Here's what's happening with your business today.
-                    </p>
+                    </p> -->
                 </div>
-                <div class="flex gap-2">
-                    <Button 
-                        v-for="action in quickActions.slice(0, 3)" 
-                        :key="action.label"
-                        :label="action.label"
-                        :icon="action.icon"
-                        size="small"
-                        severity="secondary"
-                        @click="action.command"
-                    />
-                    <Button 
-                        icon="pi pi-ellipsis-v" 
-                        severity="secondary" 
-                        text 
-                        rounded 
-                        size="small"
-                        @click="quickMenu.toggle($event)"
-                    />
-                    <Menu ref="quickMenu" :model="quickActions" :popup="true" />
-                </div>
+             
             </div>
         </div>
 
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div 
-                v-for="stat in statsCards" 
-                :key="stat.title"
-                class="stat-card"
-            >
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="stat-title">{{ stat.title }}</p>
-                        <h3 class="stat-value">{{ stat.value }}</h3>
-                        <div class="stat-change" :class="stat.trend">
-                            <i :class="stat.trend === 'up' ? 'pi pi-arrow-up' : 'pi pi-arrow-down'"></i>
-                            <span>{{ stat.change }}</span>
-                            <span class="text-muted-color ml-1">vs last month</span>
-                        </div>
-                    </div>
-                    <div :class="['stat-icon-wrapper', stat.bgColor]">
-                        <i :class="[stat.icon, stat.iconColor, 'text-xl']"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
+       
 
         <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <!-- Main Chart -->
-            <div class="lg:col-span-2">
-                <div class="card h-full">
-                    <div class="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 class="text-lg font-semibold">Revenue Overview</h3>
-                            <p class="text-sm text-muted-color">Monthly revenue performance</p>
-                        </div>
-                        <SelectButton 
-                            v-model="chartPeriod" 
-                            :options="['1M', '6M', '1Y']" 
-                            size="small"
-                        />
-                    </div>
-                    <Chart type="line" :data="chartData" :options="chartOptions" class="h-72" />
-                </div>
-            </div>
-
-            <!-- Sales Chart -->
-            <div class="lg:col-span-1">
-                <div class="card h-full">
-                    <div class="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 class="text-lg font-semibold">Weekly Sales</h3>
-                            <p class="text-sm text-muted-color">This week's performance</p>
-                        </div>
-                        <Button icon="pi pi-download" text rounded size="small" />
-                    </div>
-                    <Chart type="bar" :data="salesChartData" :options="salesChartOptions" class="h-72" />
-                </div>
-            </div>
-        </div>
+    
 
         <!-- Bottom Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <!-- Recent Products -->
-            <div class="lg:col-span-2">
-                <div class="card">
-                    <div class="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 class="text-lg font-semibold">Recent Products</h3>
-                            <p class="text-sm text-muted-color">Latest added products</p>
-                        </div>
-                        <Button label="View All" text size="small" @click="navigateTo('/master/barang')" />
-                    </div>
-                    <DataTable :value="products" :rows="5" :paginator="false" size="small" class="compact-table">
-                        <Column field="code" header="Code" style="width: 100px"></Column>
-                        <Column field="name" header="Name">
-                            <template #body="slotProps">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded bg-primary-100 flex items-center justify-center">
-                                        <i class="pi pi-box text-primary"></i>
-                                    </div>
-                                    <span>{{ slotProps.data.name }}</span>
-                                </div>
-                            </template>
-                        </Column>
-                        <Column field="category" header="Category" style="width: 120px"></Column>
-                        <Column field="price" header="Price" style="width: 120px">
-                            <template #body="slotProps">
-                                {{ formatCurrency(slotProps.data.price) }}
-                            </template>
-                        </Column>
-                        <Column field="inventoryStatus" header="Status" style="width: 100px">
-                            <template #body="slotProps">
-                                <Tag 
-                                    :value="slotProps.data.inventoryStatus" 
-                                    :severity="slotProps.data.inventoryStatus === 'INSTOCK' ? 'success' : slotProps.data.inventoryStatus === 'LOWSTOCK' ? 'warning' : 'danger'"
-                                    size="small"
-                                />
-                            </template>
-                        </Column>
-                    </DataTable>
-                </div>
-            </div>
-
-            <!-- Recent Activities -->
-            <div class="lg:col-span-1">
-                <div class="card h-full">
-                    <div class="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 class="text-lg font-semibold">Recent Activities</h3>
-                            <p class="text-sm text-muted-color">Latest user actions</p>
-                        </div>
-                        <Button icon="pi pi-refresh" text rounded size="small" />
-                    </div>
-                    <div class="activity-list">
-                        <div 
-                            v-for="(activity, index) in recentActivities" 
-                            :key="index"
-                            class="activity-item"
-                        >
-                            <div class="activity-avatar">
-                                {{ activity.avatar }}
-                            </div>
-                            <div class="activity-content">
-                                <p class="activity-text">
-                                    <span class="font-medium">{{ activity.user }}</span>
-                                    {{ activity.action }}
-                                    <span class="font-medium text-primary">{{ activity.target }}</span>
-                                </p>
-                                <span class="activity-time">{{ activity.time }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </template>
 
