@@ -42,12 +42,12 @@ const model = ref([
             {
                 label: 'Laporan Persediaan',
                 icon: 'pi pi-box',
-                to: '/laporan/persediaan'  // ✅ GANTI PATH
+                to: '/laporan/persediaan'
             },
             {
                 label: 'Lap Pembelian by Nota',
                 icon: 'pi pi-shopping-cart',
-                to: '/laporan/pembelian'   // ✅ GANTI PATH
+                to: '/laporan/pembelian'
             },
             { label: 'Lap Pembelian Per Item', icon: 'pi pi-list', to: '/laporan/pembelian-per-item' },
             { label: 'Lap Penjualan by Nota', icon: 'pi pi-shopping-bag', to: '/laporan/penjualan' },
@@ -55,10 +55,10 @@ const model = ref([
             { label: 'Kartu Stock', icon: 'pi pi-chart-line', to: '/laporan/kartu-stock' },
         ]
     },
-    // {
-    //     label: 'POS(Kasir)',
-    //     items: [{ label: 'POS', icon: 'pi pi-fw pi-home', to: '/pos' }]
-    // },
+    {
+        label: 'POS(Kasir)',
+        items: [{ label: 'POS', icon: 'pi pi-fw pi-home', to: '/pos' }]
+    },
     // {
     //     label: 'Komisi',
     //     items: [

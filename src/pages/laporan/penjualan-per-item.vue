@@ -1,7 +1,7 @@
 <template>
     <div class="report-page">
         <!-- Header -->
-        <div class="report-header">
+        <!-- <div class="report-header">
             <div class="header-left">
                 <div class="header-icon"><i class="pi pi-list"></i></div>
                 <div class="header-text">
@@ -14,7 +14,7 @@
                 <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="exportPDF" />
                 <Button label="Export CSV" icon="pi pi-file" severity="info" size="small" @click="exportCSV" />
             </div>
-        </div>
+        </div> -->
 
         <div class="report-card">
             <!-- Toolbar -->
@@ -31,6 +31,9 @@
                     </div>
                 </div>
                 <div class="toolbar-right">
+                    <Button label="Export Excel" icon="pi pi-file-excel" severity="success" size="small" @click="exportExcel" />
+                <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="exportPDF" />
+                <Button label="Export CSV" icon="pi pi-file" severity="info" size="small" @click="exportCSV" />
                     <Button icon="pi pi-refresh" severity="secondary" text size="small" :loading="loading" @click="loadData" />
                     <Button icon="pi pi-filter" severity="secondary" text size="small" :class="{ 'filter-active': showTextFilter }" @click="showTextFilter = !showTextFilter" />
                 </div>
@@ -338,7 +341,7 @@ onMounted(() => { resetTextFilters(); loadData() })
 .report-card { background: var(--surface-card); border-radius: 0.75rem; border: 1px solid var(--surface-border); overflow: hidden; }
 .browse-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-50); .toolbar-left { display: flex; align-items: center; gap: 0.75rem; } .search-input { width: 260px; } .active-filters { display: flex; align-items: center; gap: 0.375rem; padding: 0.2rem 0.75rem; background: var(--surface-200); border-radius: 1rem; font-size: 0.75rem; } .toolbar-right { display: flex; align-items: center; gap: 0.25rem; } .filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; } }
 .text-filter-panel { padding: 0.75rem; border-bottom: 1px solid var(--surface-border); .text-filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem; } .text-filter-item label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); } .text-filter-footer { display: flex; justify-content: space-between; } }
-.date-filter-row { display: flex; align-items: flex-end; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--surface-border); .date-item { display: flex; flex-direction: column; gap: 0.25rem; label { font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); text-transform: uppercase; } } }
+.date-filter-row { display: flex; align-items: flex-end; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--surface-border); .date-item { display: flex; flex-direction: row; gap: 0.25rem; label { font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); text-transform: uppercase; } } }
 .tab-buttons { display: flex; border-bottom: 2px solid var(--surface-border); button { padding: 0.6rem 1.5rem; border: none; background: transparent; font-size: 0.85rem; color: var(--text-color-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; i { margin-right: 0.5rem; } &.active { color: var(--primary-600); border-bottom-color: var(--primary-500); font-weight: 600; } } }
 .report-table { :deep(.p-datatable-wrapper) { overflow-x: auto !important; } :deep(.p-datatable-thead > tr > th) { background: var(--surface-50); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 0.35rem 0.5rem !important; height: 2rem !important; border-bottom: 2px solid var(--surface-border); white-space: nowrap; } :deep(.p-datatable-tbody > tr > td) { padding: 0.25rem 0.5rem; font-size: 0.8rem; white-space: nowrap; } :deep(.p-datatable-table) { min-width: 1300px; } }
 .column-header {
