@@ -31,7 +31,7 @@
                     </div>
                 </div>
                 <div class="toolbar-right">
-                    <Button label="Export Excel" icon="pi pi-file-excel" severity="success" size="small" @click="exportExcel" />
+                <Button label="Export Excel" icon="pi pi-file-excel" severity="success" size="small" @click="exportExcel" />
                 <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="exportPDF" />
                 <Button label="Export CSV" icon="pi pi-file" severity="info" size="small" @click="exportCSV" />
                     <Button icon="pi pi-refresh" severity="secondary" text size="small" :loading="loading" @click="loadData" />
@@ -53,11 +53,17 @@
                 </div>
             </div>
 
-            <!-- Date Filter -->
-            <div class="date-filter-row">
-                <div class="date-item"><label>Tanggal Mulai</label><DatePicker v-model="startDate" dateFormat="yy-mm-dd" showIcon size="small" /></div>
-                <div class="date-item"><label>Tanggal Akhir</label><DatePicker v-model="endDate" dateFormat="yy-mm-dd" showIcon size="small" /></div>
-            </div>
+			<!-- Date Filter -->
+			<div class="date-filter-row">
+			  <div class="date-item">
+				<label>Tanggal Mulai</label>
+				<DatePicker v-model="startDate" dateFormat="yy-mm-dd" showIcon size="small" />
+			  </div>
+			  <div class="date-item">
+				<label>Tanggal Akhir</label>
+				<DatePicker v-model="endDate" dateFormat="yy-mm-dd" showIcon size="small" />
+			  </div>
+			</div>
 
             <!-- Tab -->
             <div class="tab-buttons">
@@ -394,4 +400,20 @@ onMounted(() => { resetTextFilters(); loadData() })
 .w-40 { width: 10rem; }
 .export-dialog-content { .export-dialog-text { font-size: 0.9rem; color: var(--text-color-secondary); margin-bottom: 1.25rem; } .export-options { display: flex; flex-direction: column; gap: 0.75rem; } .export-option { display: flex; align-items: center; gap: 0.875rem; padding: 1rem 1.25rem; border: 2px solid var(--surface-border); border-radius: 0.75rem; cursor: pointer; transition: all 0.2s; .option-radio { .radio-circle { width: 1.25rem; height: 1.25rem; border-radius: 50%; border: 2px solid #cbd5e1; &.checked { border-color: var(--primary-500); background: var(--primary-500); position: relative; &::after { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: white; position: absolute; } } } } .option-icon { width: 2.5rem; height: 2.5rem; background: var(--surface-100); border-radius: 0.625rem; display: flex; align-items: center; justify-content: center; i { font-size: 1.25rem; } } .option-text { strong { display: block; font-size: 0.9rem; } small { font-size: 0.75rem; color: var(--text-color-secondary); } } &:hover { border-color: var(--primary-300); background: var(--primary-50); } &.active { border-color: var(--primary-500); background: var(--primary-50); } } }
 @media (max-width: 768px) { .report-header { flex-direction: column; align-items: flex-start; gap: 1rem; .header-actions { width: 100%; button { flex: 1; } } } }
+.date-filter-row {
+  display: flex;
+  align-items: center;  /* ini yang bikin sejajar vertikal */
+  gap: 16px;
+}
+
+.date-item {
+  display: flex;
+  align-items: center;  /* label dan input sejajar */
+  gap: 8px;
+}
+
+.date-item label {
+  white-space: nowrap;  /* biar label tidak wrap ke bawah */
+  font-weight: 600;
+}
 </style>
