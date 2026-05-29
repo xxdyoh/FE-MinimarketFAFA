@@ -12,8 +12,10 @@
             </div>
             <div class="header-actions">
                 <Button icon="pi pi-plus" severity="success" text rounded size="large" @click="bukaPembayaran" v-tooltip="'Bayar (+)'" />
+                <Button icon="pi pi-print" text rounded size="small" @click="openReprint" v-tooltip="'Reprint (F6)'" />
                 <Button icon="pi pi-pause" text rounded size="small" @click="pendingTransaction" v-tooltip="'Pending (Ctrl+P)'" />
                 <Button icon="pi pi-list" text rounded size="small" @click="openPendingList" v-tooltip="'Daftar Pending (Ctrl+S)'" />
+                <Button icon="pi pi-users" text rounded size="small" @click="openMemberDialog" v-tooltip="'Member (Ctrl+M)'" />
                 <Button icon="pi pi-trash" text rounded size="small" severity="danger" @click="clearCart" v-tooltip="'Hapus Keranjang (ESC)'" />
             </div>
         </div>
@@ -124,120 +126,219 @@
 
         <!-- Dialog Pembayaran -->
         <Dialog v-model:visible="paymentDialog" header="Pembayaran" :modal="true" :style="{ width: '500px' }">
-    <div class="payment-dialog">
-        <!-- 🔥 No Bon & Total Belanja (1 row) -->
-        <div class="payment-row two-col">
-            <div class="field-group">
-                <label>No Bon</label>
-                <InputText :value="noBon" readonly class="no-bon-input" />
+            <div class="payment-dialog">
+                <!-- 🔥 No Bon & Total Belanja (1 row) -->
+                <div class="payment-row two-col">
+                    <div class="field-group">
+                        <label>No Bon</label>
+                        <InputText :value="noBon" readonly class="no-bon-input" />
+                    </div>
+                    <div class="field-group">
+                        <label>Total Belanja</label>
+                        <InputNumber :modelValue="grandTotal" mode="currency" currency="IDR" locale="id-ID" readonly class="total-belanja-input" />
+                    </div>
+                </div>
+                
+                <!-- 🔥 Ongkir & Potongan (1 row) -->
+                <div class="payment-row two-col">
+                    <div class="field-group">
+                        <label>Ongkir</label>
+                        <InputNumber v-model="ongkir" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" />
+                    </div>
+                    <div class="field-group">
+                        <label>Potongan</label>
+                        <InputNumber v-model="potongan" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" />
+                    </div>
+                </div>
+                
+                <Divider />
+                <label class="section-label">Pembayaran</label>
+                
+                <!-- Cash -->
+                <div class="payment-row">
+                    <label>Cash Rp</label>
+                    <InputNumber v-model="cash" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" />
+                </div>
+                
+                <!-- Voucher -->
+                <div class="payment-row two-col">
+                    <div class="field-group"><label>Voucher Rp</label><InputNumber v-model="voucher" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" /></div>
+                    <div class="field-group"><label>No Voucher</label><InputText v-model="noVoucher" size="small" class="w-full" /></div>
+                </div>
+                
+                <!-- Card -->
+                <div class="payment-row three-col">
+                    <div class="field-group"><label>Card Rp</label><InputNumber v-model="card" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" /></div>
+                    <div class="field-group"><label>No Card</label><InputText v-model="noCard" size="small" class="w-full" /></div>
+                    <div class="field-group"><label>Bank</label><InputText v-model="bank" size="small" class="w-full" /></div>
+                </div>
+                
+                <!-- Piutang -->
+                <div class="payment-row">
+                    <label>Piutang Rp</label>
+                    <InputNumber v-model="piutang" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" />
+                </div>
+                
+                <Divider />
+                
+                <!-- Ringkasan -->
+                <div class="payment-summary">
+                    <div class="summary-row"><span>Grand Total</span><span>{{ formatCurrency(grandTotalFinal) }}</span></div>
+                    <div class="summary-row"><span>Total Bayar</span><span>{{ formatCurrency(totalBayarReal) }}</span></div>
+                    <div class="summary-row kembalian-row" :class="{ 'kembalian-positif': kembalian >= 0, 'kembalian-negatif': kembalian < 0 }">
+                        <span><strong>Kembalian</strong></span><span><strong>{{ formatCurrency(Math.max(0, kembalian)) }}</strong></span>
+                    </div>
+                </div>
             </div>
-            <div class="field-group">
-                <label>Total Belanja</label>
-                <InputNumber :modelValue="grandTotal" mode="currency" currency="IDR" locale="id-ID" readonly class="total-belanja-input" />
-            </div>
-        </div>
-        
-        <!-- 🔥 Ongkir & Potongan (1 row) -->
-        <div class="payment-row two-col">
-            <div class="field-group">
-                <label>Ongkir</label>
-                <InputNumber v-model="ongkir" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" />
-            </div>
-            <div class="field-group">
-                <label>Potongan</label>
-                <InputNumber v-model="potongan" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" />
-            </div>
-        </div>
-        
-        <Divider />
-        <label class="section-label">Pembayaran</label>
-        
-        <!-- Cash -->
-        <div class="payment-row">
-            <label>Cash Rp</label>
-            <InputNumber v-model="cash" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" />
-        </div>
-        
-        <!-- Voucher -->
-        <div class="payment-row two-col">
-            <div class="field-group"><label>Voucher Rp</label><InputNumber v-model="voucher" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" /></div>
-            <div class="field-group"><label>No Voucher</label><InputText v-model="noVoucher" size="small" class="w-full" /></div>
-        </div>
-        
-        <!-- Card -->
-        <div class="payment-row three-col">
-            <div class="field-group"><label>Card Rp</label><InputNumber v-model="card" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" /></div>
-            <div class="field-group"><label>No Card</label><InputText v-model="noCard" size="small" class="w-full" /></div>
-            <div class="field-group"><label>Bank</label><InputText v-model="bank" size="small" class="w-full" /></div>
-        </div>
-        
-        <!-- Piutang -->
-        <div class="payment-row">
-            <label>Piutang Rp</label>
-            <InputNumber v-model="piutang" mode="currency" currency="IDR" locale="id-ID" size="small" class="w-full" />
-        </div>
-        
-        <Divider />
-        
-        <!-- Ringkasan -->
-        <div class="payment-summary">
-            <div class="summary-row"><span>Grand Total</span><span>{{ formatCurrency(grandTotalFinal) }}</span></div>
-            <div class="summary-row"><span>Total Bayar</span><span>{{ formatCurrency(totalBayarReal) }}</span></div>
-            <div class="summary-row kembalian-row" :class="{ 'kembalian-positif': kembalian >= 0, 'kembalian-negatif': kembalian < 0 }">
-                <span><strong>Kembalian</strong></span><span><strong>{{ formatCurrency(Math.max(0, kembalian)) }}</strong></span>
-            </div>
-        </div>
-    </div>
-    <template #footer>
-        <Button label="Batal" severity="secondary" text size="small" @click="paymentDialog = false" />
-        <Button label="Bayar & Cetak" icon="pi pi-check" severity="primary" @click="simpanTransaksi" :loading="saving" :disabled="kembalian < 0" />
-    </template>
-</Dialog>
+            <template #footer>
+                <Button label="Batal" severity="secondary" text size="small" @click="paymentDialog = false" />
+                <Button label="Bayar & Cetak" icon="pi pi-check" severity="primary" @click="simpanTransaksi" :loading="saving" :disabled="kembalian < 0" />
+            </template>
+        </Dialog>
 
         <!-- Dialog Ringkasan (setelah bayar) -->
         <Dialog v-model:visible="summaryDialog" :modal="true" :closable="false" :style="{ width: '360px' }">
-    <div class="summary-dialog-content">
-        <div class="summary-icon"><i class="pi pi-check-circle"></i></div>
-        <h3>Transaksi Berhasil</h3>
-        <div class="summary-rows">
-            <!-- 🔥 Pakai lastPayment (nilai tersimpan sebelum reset) -->
-            <div class="summary-row">
-                <span>Grand Total</span>
-                <span>{{ formatCurrency(lastPayment.grandTotal) }}</span>
+            <div class="summary-dialog-content">
+                <div class="summary-icon"><i class="pi pi-check-circle"></i></div>
+                <h3>Transaksi Berhasil</h3>
+                <div class="summary-rows">
+                    <!-- 🔥 Pakai lastPayment (nilai tersimpan sebelum reset) -->
+                    <div class="summary-row">
+                        <span>Grand Total</span>
+                        <span>{{ formatCurrency(lastPayment.grandTotal) }}</span>
+                    </div>
+                    <div class="summary-row" v-if="lastPayment.ongkir > 0">
+                        <span>  Ongkir</span>
+                        <span>{{ formatCurrency(lastPayment.ongkir) }}</span>
+                    </div>
+                    <div class="summary-row" v-if="lastPayment.potongan > 0">
+                        <span>  Potongan</span>
+                        <span>-{{ formatCurrency(lastPayment.potongan) }}</span>
+                    </div>
+                    <!-- <div class="summary-row" style="border-top:1px solid #e5e7eb; padding-top:8px;">
+                        <span>Total Bayar</span>
+                        <span>{{ formatCurrency(lastPayment.totalBayar) }}</span>
+                    </div> -->
+                    <div class="summary-row" v-if="lastPayment.cash > 0"><span>  Cash</span><span>{{ formatCurrency(lastPayment.cash) }}</span></div>
+                    <div class="summary-row" v-if="lastPayment.card > 0"><span>  Card</span><span>{{ formatCurrency(lastPayment.card) }}</span></div>
+                    <div class="summary-row" v-if="lastPayment.voucher > 0"><span>  Voucher</span><span>{{ formatCurrency(lastPayment.voucher) }}</span></div>
+                    <div class="summary-row" v-if="lastPayment.piutang > 0"><span>  Piutang</span><span>{{ formatCurrency(lastPayment.piutang) }}</span></div>
+                    <div class="summary-row kembalian-row">
+                        <span><strong>Kembalian</strong></span>
+                        <span><strong>{{ formatCurrency(Math.max(0, lastPayment.kembalian)) }}</strong></span>
+                    </div>
+                </div>
             </div>
-            <div class="summary-row" v-if="lastPayment.ongkir > 0">
-                <span>  Ongkir</span>
-                <span>{{ formatCurrency(lastPayment.ongkir) }}</span>
+            <template #footer>
+                <Button label="Cetak 58mm" icon="pi pi-print" severity="primary" @click="printStruk('58')" />
+                <Button label="Cetak 80mm" icon="pi pi-print" severity="info" @click="printStruk('80')" />
+                <Button label="Tutup" text size="small" @click="summaryDialog.value = false; nextTick(() => scanInputRef.value?.$el?.focus())" />
+            </template>
+        </Dialog>
+
+        <!-- Dialog Reprint (F6) -->
+        <Dialog v-model:visible="reprintDialog" header="Reprint Nota" :modal="true" :style="{ width: '450px' }">
+            <div class="reprint-dialog">
+                <p class="reprint-desc">Masukkan No Bon untuk mencetak ulang</p>
+                <div class="reprint-input-row">
+                    <div class="reprint-prefix">
+                        <InputText v-model="reprintPrefix" class="prefix-input" />  <!-- ✅ Tidak readonly -->
+                    </div>
+                    <div class="reprint-number">
+                        <InputText v-model="reprintNumber" placeholder="Nomor" class="number-input" @keydown.enter="doReprint" autofocus />
+                    </div>
+                </div>
+                <small class="reprint-hint">Format lengkap: {{ reprintPrefix }}{{ reprintNumber }}</small>
             </div>
-            <div class="summary-row" v-if="lastPayment.potongan > 0">
-                <span>  Potongan</span>
-                <span>-{{ formatCurrency(lastPayment.potongan) }}</span>
+            <template #footer>
+                <Button label="Batal" severity="secondary" text size="small" @click="reprintDialog = false" />
+                <Button label="Cetak" icon="pi pi-print" severity="primary" @click="doReprint" :loading="reprintLoading" />
+            </template>
+        </Dialog>
+
+        <!-- Dialog Pilih Ukuran Kertas (Reprint) -->
+        <Dialog v-model:visible="reprintUkuranDialog" header="Pilih Ukuran Kertas" :modal="true" :style="{ width: '350px' }">
+            <div class="ukuran-dialog">
+                <p>Pilih ukuran kertas thermal:</p>
+                <div class="ukuran-options">
+                    <Button label="58 mm" icon="pi pi-print" severity="primary" size="large" class="ukuran-btn" @click="pilihUkuranReprint('58')" />
+                    <Button label="80 mm" icon="pi pi-print" severity="info" size="large" class="ukuran-btn" @click="pilihUkuranReprint('80')" />
+                </div>
             </div>
-            <div class="summary-row" style="border-top:1px solid #e5e7eb; padding-top:8px;">
-                <span>Total Bayar</span>
-                <span>{{ formatCurrency(lastPayment.totalBayar) }}</span>
+        </Dialog>
+
+        <!-- Dialog Member (Ctrl+M) -->
+        <Dialog v-model:visible="memberDialog" header="Data Member" :modal="true" :style="{ width: '750px' }">
+    <div class="member-dialog">
+        <!-- Form Input -->
+        <div class="member-form">
+            <div class="member-form-row">
+                <div class="field-group" style="flex: 2;">
+                    <label>Nama <span class="required">*</span></label>
+                    <InputText v-model="memberNama" placeholder="Nama lengkap" size="small" class="w-full" @keydown.enter="simpanMember" />
+                </div>
+                <div class="field-group" style="flex: 1.5;">
+                    <label>Telepon</label>
+                    <InputText v-model="memberTelp" placeholder="Nomor telepon" size="small" class="w-full" @keydown.enter="simpanMember" />
+                </div>
+                <div class="field-group" style="flex: 0.5; justify-content: flex-end;">
+                    <label>&nbsp;</label>
+                    <Button label="Simpan" icon="pi pi-save" severity="primary" size="small" @click="simpanMember" :loading="memberSaving" />
+                </div>
             </div>
-            <div class="summary-row" v-if="lastPayment.cash > 0"><span>  Cash</span><span>{{ formatCurrency(lastPayment.cash) }}</span></div>
-            <div class="summary-row" v-if="lastPayment.card > 0"><span>  Card</span><span>{{ formatCurrency(lastPayment.card) }}</span></div>
-            <div class="summary-row" v-if="lastPayment.voucher > 0"><span>  Voucher</span><span>{{ formatCurrency(lastPayment.voucher) }}</span></div>
-            <div class="summary-row" v-if="lastPayment.piutang > 0"><span>  Piutang</span><span>{{ formatCurrency(lastPayment.piutang) }}</span></div>
-            <div class="summary-row kembalian-row">
-                <span><strong>Kembalian</strong></span>
-                <span><strong>{{ formatCurrency(Math.max(0, lastPayment.kembalian)) }}</strong></span>
+            <div class="member-form-row">
+                <div class="field-group" style="flex: 1;">
+                    <label>Alamat</label>
+                    <Textarea v-model="memberAlamat" placeholder="Alamat lengkap" rows="2" size="small" class="w-full" />
+                </div>
             </div>
         </div>
+        
+        <Divider />
+        
+        <!-- Search -->
+        <div class="member-search">
+            <IconField iconPosition="left">
+                <InputIcon class="pi pi-search" />
+                <InputText v-model="memberSearch" placeholder="Cari nama, kode, atau telepon..." size="small" class="w-full" @input="searchMember" />
+            </IconField>
+        </div>
+        
+        <!-- Grid Member -->
+        <DataTable 
+            :value="memberList" 
+            :loading="memberLoading" 
+            class="member-table" 
+            stripedRows 
+            size="small"
+            @row-dblclick="pilihMember"
+            paginator 
+            :rows="8"
+        >
+            <template #empty>
+                <div class="empty-state"><i class="pi pi-users"></i><p>Belum ada data member</p></div>
+            </template>
+            <Column field="Kode" header="Kode" style="width: 120px" />
+            <Column field="Nama" header="Nama" style="min-width: 180px" />
+            <Column field="Alamat" header="Alamat" style="min-width: 200px" />
+            <Column field="Telp" header="Telepon" style="width: 130px" />
+            <Column field="Poin" header="Poin" style="width: 80px; text-align: center">
+                <template #body="{ data }">
+                    <span class="font-bold">{{ data.Poin || 0 }}</span>
+                </template>
+            </Column>
+        </DataTable>
+        
+        <small class="member-hint">Double-click untuk memilih member | Ctrl+M untuk tutup</small>
     </div>
-    <template #footer>
-        <Button label="Cetak Struk" icon="pi pi-print" severity="primary" @click="printStruk()" />
-        <Button label="Tutup" text size="small" @click="summaryDialog.value = false; nextTick(() => scanInputRef.value?.$el?.focus())" />
-    </template>
-</Dialog>
+        </Dialog>
     </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useToast } from 'primevue/usetoast'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ layout: 'pos' })
 
@@ -245,7 +346,8 @@ const { $api } = useNuxtApp()
 const toast = useToast()
 const router = useRouter()
 const scanInputRef = ref<any>(null)
-const userId = ref(1)
+const authStore = useAuthStore()
+const userId = computed(() => authStore.userId || 1)
 
 // Cart State
 interface CartItem {
@@ -272,6 +374,22 @@ const cash = ref(0); const voucher = ref(0); const noVoucher = ref('')
 const card = ref(0); const noCard = ref(''); const bank = ref('')
 const piutang = ref(0); const saving = ref(false)
 const lastStrukData = ref<any>(null)
+
+// Reprint State
+const reprintDialog = ref(false)
+const reprintPrefix = ref('')
+const reprintNumber = ref('')
+const reprintLoading = ref(false)
+
+// Member State
+const memberDialog = ref(false)
+const memberNama = ref('')
+const memberAlamat = ref('')
+const memberTelp = ref('')
+const memberSearch = ref('')
+const memberList = ref<any[]>([])
+const memberLoading = ref(false)
+const memberSaving = ref(false)
 
 // Computed
 const today = computed(() => new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
@@ -424,34 +542,134 @@ const simpanTransaksi = async () => {
     } finally { saving.value = false }
 }
 
+// 🔥 Buka dialog reprint (F6)
+const openReprint = async () => {
+    // Generate prefix: SAL-{kodeKasir}{YYYYMMDD}
+    try {
+        const res = await $api.get('/pos/no-bon', { params: { user_id: userId.value } })
+        if (res.data.success) {
+            const noBon = res.data.no_bon
+            // Ambil prefix tanpa 3 digit terakhir
+            reprintPrefix.value = noBon.slice(0, -3)
+        }
+    } catch (e) { console.error(e) }
+    
+    reprintNumber.value = ''
+    reprintDialog.value = true
+}
+
+// 🔥 Proses reprint
+const doReprint = async () => {
+    const noBon = reprintPrefix.value + reprintNumber.value
+    if (!reprintNumber.value) {
+        toast.add({ severity: 'warn', summary: 'Error', detail: 'Masukkan nomor', life: 2000 }); return
+    }
+    
+    reprintLoading.value = true
+    try {
+        const res = await $api.get('/pos/struk', { params: { no_bon: noBon } })
+        if (res.data.success && res.data.struk) {
+            lastStrukData.value = res.data.struk
+            reprintDialog.value = false
+            // Tampilkan dialog pilih ukuran
+            reprintUkuranDialog.value = true
+        } else {
+            toast.add({ severity: 'error', summary: 'Tidak Ditemukan', detail: 'No Bon tidak ditemukan', life: 2000 })
+        }
+    } catch (e: any) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: e.response?.data?.message || 'Gagal', life: 2000 })
+    } finally { reprintLoading.value = false }
+}
+
+// 🔥 Buka dialog member (Ctrl+M)
+const openMemberDialog = () => {
+    memberNama.value = ''; memberAlamat.value = ''; memberTelp.value = ''
+    memberSearch.value = ''
+    memberDialog.value = true
+    loadMemberList()
+}
+
+// 🔥 Load member list
+const loadMemberList = async (search: string = '') => {
+    memberLoading.value = true
+    try {
+        const res = await $api.get('/pos/member', { params: { search } })
+        if (res.data.success) memberList.value = res.data.data
+    } catch (e) { console.error(e) } finally { memberLoading.value = false }
+}
+
+// 🔥 Search member (debounce)
+let memberSearchTimeout: any
+const searchMember = () => {
+    clearTimeout(memberSearchTimeout)
+    memberSearchTimeout = setTimeout(() => loadMemberList(memberSearch.value), 300)
+}
+
+// 🔥 Simpan member baru
+const simpanMember = async () => {
+    if (!memberNama.value.trim()) {
+        toast.add({ severity: 'warn', summary: 'Error', detail: 'Nama harus diisi', life: 2000 }); return
+    }
+    
+    memberSaving.value = true
+    try {
+        const res = await $api.post('/pos/member', {
+            nama: memberNama.value,
+            alamat: memberAlamat.value,
+            telp: memberTelp.value
+        })
+        
+        if (res.data.success) {
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: `Member ${res.data.kode} disimpan`, life: 2000 })
+            memberNama.value = ''; memberAlamat.value = ''; memberTelp.value = ''
+            loadMemberList()
+        }
+    } catch (e: any) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: e.response?.data?.message || 'Gagal', life: 2000 })
+    } finally { memberSaving.value = false }
+}
+
+// 🔥 Double-click pilih member (isi ke customer)
+const pilihMember = (event: any) => {
+    if (event.data) {
+        customerKode.value = event.data.Kode
+        customerNama.value = event.data.Nama
+        memberDialog.value = false
+        nextTick(() => scanInputRef.value?.$el?.focus())
+    }
+}
+
+// Dialog pilih ukuran untuk reprint
+const reprintUkuranDialog = ref(false)
+const pilihUkuranReprint = (ukuran: '58' | '80') => {
+    reprintUkuranDialog.value = false
+    printStruk(ukuran)
+}
+
 // Print
-const printStruk = () => {
+const printStruk = (ukuran: '58' | '80' = '58') => {
     const data = lastStrukData.value
     if (!data) return
     summaryDialog.value = false
 
-    const lebar = '58mm'
+    const lebarPx = ukuran === '58' ? '220px' : '302px'
+    const fontSize = ukuran === '58' ? '10px' : '11px'
+    const padding = ukuran === '58' ? '3mm' : '4mm'
 
     let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Struk</title>
     <style>
-        @page { size: ${lebar} 200mm; margin: 0; }
+        @page { size: ${ukuran}mm 200mm; margin: 0; }
+        @media print { body { width: ${ukuran}mm !important; } }
         body {
-            font-family: 'Courier New', monospace;
-            font-size: 10px;
-            padding: 3mm;
-            width: ${lebar};
-            margin: 0 auto;
-            box-sizing: border-box;
+            font-family: 'Courier New', monospace; font-size: ${fontSize};
+            padding: ${padding}; width: ${lebarPx}; margin: 0 auto; box-sizing: border-box;
         }
-        .center { text-align: center; }
-        .right { text-align: right; }
+        .center { text-align: center; } .right { text-align: right; }
         .line { border-top: 1px dashed #000; margin: 3px 0; }
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 1px 0; }
+        table { width: 100%; border-collapse: collapse; } td { padding: 1px 0; }
         .bold { font-weight: bold; }
-        @media print {
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
+        .item-row td { padding: 2px 0; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     </style></head><body>
         <div class="center bold">${data.perusahaan?.perush_nama || 'FAFA KOSMETIK'}</div>
         <div class="center">${data.perusahaan?.perush_alamat || ''}</div>
@@ -459,20 +677,29 @@ const printStruk = () => {
         <div class="line"></div>
         <div>No : ${data.hdr.so_nomor}</div>
         <div>Tgl: ${new Date(data.hdr.so_tanggal).toLocaleDateString('id-ID')} ${new Date(data.hdr.so_tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
-        <div>Kasir: ${data.hdr.so_user_kasir}</div>`
+        <div>Kasir: ${data.nama_kasir || data.hdr.so_user_kasir}</div>`
 
+    // 🔥 Member: tampilkan nomor + nama
     if (data.customer && data.hdr.so_cus_kode !== '0000000001') {
-        html += `<div>Mbr: ${data.hdr.so_cus_kode} | ${data.customer.cus_nama || ''}</div>`
+        html += `<div>Member: ${data.hdr.so_cus_kode}</div>`
+        html += `<div>        ${data.customer.cus_nama || ''}</div>`
     }
 
     html += `<div class="line"></div><table>`
 
+    // 🔥 Items: 1 baris per item
     data.items.forEach((item: any) => {
         const disc = (item.sod_discpr * item.sod_hargakasir / 100) + item.sod_discrp
         const subTotal = (item.sod_hargakasir - disc) * item.sod_qtykasir
 
-        html += `<tr><td>${item.brg_nama_singkat || item.sod_brg_kode}</td></tr>
-            <tr><td>${item.sod_qtykasir} x ${formatCurrency(item.sod_hargakasir)}</td><td class="right">${formatCurrency(subTotal)}</td></tr>`
+        html += `<tr class="item-row"><td colspan="2">${item.brg_nama_singkat || item.sod_brg_kode}</td></tr>`
+        
+        // 🔥 1 baris: Qty x Harga = Total
+        html += `<tr class="item-row">
+            <td>${item.sod_qtykasir} x ${formatCurrency(item.sod_hargakasir)}</td>
+            <td class="right">= ${formatCurrency(subTotal)}</td>
+        </tr>`
+        
         if (disc > 0) {
             html += `<tr><td>Disc</td><td class="right">-${formatCurrency(disc * item.sod_qtykasir)}</td></tr>`
         }
@@ -482,6 +709,7 @@ const printStruk = () => {
         <tr><td>Grand Total</td><td class="right bold">${formatCurrency(data.hdr.so_amount)}</td></tr>
         ${data.hdr.so_ongkir > 0 ? `<tr><td>Ongkir</td><td class="right">${formatCurrency(data.hdr.so_ongkir)}</td></tr>` : ''}
         ${data.hdr.so_disc_faktur > 0 ? `<tr><td>Potongan</td><td class="right">-${formatCurrency(data.hdr.so_disc_faktur)}</td></tr>` : ''}
+        <tr class="bold"><td>TOTAL BAYAR</td><td class="right">${formatCurrency(parseFloat(data.hdr.so_bayar))}</td></tr>
         ${data.hdr.so_card > 0 ? `<tr><td>  Card</td><td class="right">${formatCurrency(data.hdr.so_card)}</td></tr>` : ''}
         ${data.hdr.so_voucher > 0 ? `<tr><td>  Voucher</td><td class="right">${formatCurrency(data.hdr.so_voucher)}</td></tr>` : ''}
         ${data.hdr.so_piutang > 0 ? `<tr><td>  Piutang</td><td class="right">${formatCurrency(data.hdr.so_piutang)}</td></tr>` : ''}
@@ -490,19 +718,74 @@ const printStruk = () => {
     <div class="line"></div>
     <table>
         <tr class="bold"><td>KEMBALI</td><td class="right bold">${formatCurrency(data.hdr.so_kembali)}</td></tr>
-    </table>
-    <div class="line"></div>
+    </table>`
+
+    // 🔥 POIN
+    if (data.poin?.is_member) {
+        html += `<div class="line"></div>
+        <div class="center">Tambah Poin : ${data.poin.tambah}</div>
+        <div class="center bold">Poin Anda : ${data.poin.total.toLocaleString('id-ID')}</div>`
+    }
+
+    html += `<div class="line"></div>
     <div class="center">TERIMA KASIH</div>
     <div class="center">ATAS KEPERCAYAAN ANDA</div>
     <script>window.onload=function(){window.print()}<\/script>
     </body></html>`
 
-    const win = window.open('', '_blank', 'width=220,height=600')
+    const win = window.open('', '_blank', `width=${ukuran === '58' ? 240 : 320},height=600`)
     if (win) { win.document.write(html); win.document.close() }
 }
 
 // Keyboard
-const handleKeyDown = (e: KeyboardEvent) => { if (productModal.value || customerModal.value || pendingModal.value || paymentDialog.value || summaryDialog.value) return; if (e.ctrlKey && e.key === 'p') { e.preventDefault(); pendingTransaction() } if (e.ctrlKey && e.key === 's') { e.preventDefault(); openPendingList() } if (e.key === 'F2') { e.preventDefault(); openProductModal() } if (e.key === 'Escape') { e.preventDefault(); clearCart() } if (e.key === '+') { e.preventDefault(); bukaPembayaran() } }
+const handleKeyDown = (e: KeyboardEvent) => {
+    if (productModal.value || customerModal.value || pendingModal.value || paymentDialog.value || summaryDialog.value || reprintDialog.value) return
+    
+    if (e.key === 'F10') { e.preventDefault(); gantiTipeHarga(0) }  // Carton
+    if (e.key === 'F11') { e.preventDefault(); gantiTipeHarga(1) }  // Box/Lsn
+    if (e.key === 'F12') { e.preventDefault(); gantiTipeHarga(2) }  // PCS
+    if (e.key === 'F2') { e.preventDefault(); openProductModal() }
+    if (e.key === 'F6') { e.preventDefault(); openReprint() }
+    if (e.ctrlKey && e.key === 'p') { e.preventDefault(); pendingTransaction() }
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); openPendingList() }
+    if (e.ctrlKey && e.key === 'm') { e.preventDefault(); openMemberDialog() }
+    if (e.key === 'Escape') { e.preventDefault(); clearCart() }
+    if (e.key === '+') { e.preventDefault(); bukaPembayaran() }
+}
+
+const gantiTipeHarga = async (tipe: number) => {
+    if (cartItems.value.length === 0) {
+        toast.add({ severity: 'warn', summary: 'Info', detail: 'Tidak ada item di keranjang', life: 2000 }); return
+    }
+    
+    const lastItem = cartItems.value[cartItems.value.length - 1]
+    
+    try {
+        const res = await $api.post('/pos/ganti-tipe-harga', {
+            user_id: userId.value,
+            kode: lastItem.Kode,
+            tipe: tipe
+        })
+        
+        if (res.data.success) {
+            // 🔥 Update item dengan SEMUA nilai dari response
+            lastItem.Harga = res.data.harga
+            lastItem.Satuan = res.data.satuan
+            lastItem.FlagPpn = res.data.flagPpn
+            lastItem.DiscPr = res.data.discPr    // ✅ Reset Disc%
+            lastItem.DiscRp = res.data.discRp    // ✅ Reset DiscRp
+            lastItem.Total = res.data.total      // ✅ Total dari backend
+            lastItem.Ppn = 0
+            
+            const tipeNama = tipe === 0 ? 'Carton' : tipe === 1 ? 'Box/Lsn' : 'PCS'
+            toast.add({ severity: 'success', summary: 'Tipe Harga', detail: `Diubah ke ${tipeNama}`, life: 1500 })
+        } else {
+            toast.add({ severity: 'warn', summary: 'Gagal', detail: res.data.message, life: 2000 })
+        }
+    } catch (e: any) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: e.response?.data?.message || 'Gagal', life: 2000 })
+    }
+}
 
 const goBack = () => router.push('/dashboard')
 
@@ -545,5 +828,47 @@ onMounted(() => { loadCart(); nextTick(() => scanInputRef.value?.$el?.focus()) }
         margin-top: 0.25rem;
         strong { color: #059669; }
     }
+}
+
+.reprint-dialog {
+    .reprint-desc { font-size: 0.85rem; color: #64748b; margin-bottom: 1rem; }
+    .reprint-input-row { display: flex; gap: 0; align-items: stretch; border: 2px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; }
+    .reprint-prefix { flex-shrink: 0; .prefix-input { background: #f1f5f9; font-weight: 600; color: #1e293b; border: none; border-radius: 0; width: 180px; } }
+    .reprint-number { flex: 1; .number-input { border: none; border-radius: 0; border-left: 1px solid #e2e8f0; font-size: 1.1rem; font-weight: 700; text-align: center; } }
+    .reprint-hint { font-size: 0.7rem; color: #94a3b8; margin-top: 0.5rem; display: block; }
+}
+
+.ukuran-dialog {
+    text-align: center;
+    p { margin-bottom: 1rem; }
+    .ukuran-options { display: flex; gap: 1rem; justify-content: center; }
+    .ukuran-btn { width: 120px; height: 80px; font-size: 1rem; }
+}
+
+.member-dialog {
+    .member-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        .member-form-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+        }
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            label { font-size: 0.75rem; font-weight: 600; color: #64748b; .required { color: #dc2626; } }
+        }
+    }
+    .member-search { margin: 0.5rem 0; }
+    .member-table {
+        :deep(.p-datatable-tbody > tr) { cursor: pointer; &:hover { background: #ecfdf5; } }
+        :deep(.p-datatable-thead > tr > th) { font-size: 0.7rem; padding: 0.4rem 0.5rem; }
+        :deep(.p-datatable-tbody > tr > td) { padding: 0.3rem 0.5rem; font-size: 0.8rem; }
+    }
+    .member-hint { font-size: 0.7rem; color: #94a3b8; display: block; margin-top: 0.5rem; text-align: center; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; padding: 2rem; color: #94a3b8; i { font-size: 2rem; margin-bottom: 0.5rem; } }
 }
 </style>
