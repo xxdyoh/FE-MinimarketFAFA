@@ -202,7 +202,6 @@
                 <div class="summary-icon"><i class="pi pi-check-circle"></i></div>
                 <h3>Transaksi Berhasil</h3>
                 <div class="summary-rows">
-                    <!-- 🔥 Pakai lastPayment (nilai tersimpan sebelum reset) -->
                     <div class="summary-row">
                         <span>Grand Total</span>
                         <span>{{ formatCurrency(lastPayment.grandTotal) }}</span>
@@ -215,10 +214,6 @@
                         <span>  Potongan</span>
                         <span>-{{ formatCurrency(lastPayment.potongan) }}</span>
                     </div>
-                    <!-- <div class="summary-row" style="border-top:1px solid #e5e7eb; padding-top:8px;">
-                        <span>Total Bayar</span>
-                        <span>{{ formatCurrency(lastPayment.totalBayar) }}</span>
-                    </div> -->
                     <div class="summary-row" v-if="lastPayment.cash > 0"><span>  Cash</span><span>{{ formatCurrency(lastPayment.cash) }}</span></div>
                     <div class="summary-row" v-if="lastPayment.card > 0"><span>  Card</span><span>{{ formatCurrency(lastPayment.card) }}</span></div>
                     <div class="summary-row" v-if="lastPayment.voucher > 0"><span>  Voucher</span><span>{{ formatCurrency(lastPayment.voucher) }}</span></div>
@@ -230,8 +225,8 @@
                 </div>
             </div>
             <template #footer>
-                <Button label="Cetak 58mm" icon="pi pi-print" severity="primary" @click="printStruk('58')" />
-                <Button label="Cetak 80mm" icon="pi pi-print" severity="info" @click="printStruk('80')" />
+                <!-- 🔥 Hanya 1 tombol Print -->
+                <Button label="Cetak Struk" icon="pi pi-print" severity="primary" @click="printStruk()" />
                 <Button label="Tutup" text size="small" @click="summaryDialog.value = false; nextTick(() => scanInputRef.value?.$el?.focus())" />
             </template>
         </Dialog>
@@ -567,12 +562,12 @@ const doReprint = async () => {
     
     reprintLoading.value = true
     try {
+        // Cek apakah struk ada
         const res = await $api.get('/pos/struk', { params: { no_bon: noBon } })
         if (res.data.success && res.data.struk) {
-            lastStrukData.value = res.data.struk
             reprintDialog.value = false
-            // Tampilkan dialog pilih ukuran
-            reprintUkuranDialog.value = true
+            // 🔥 LANGSUNG buka halaman print
+            window.open(`/pos/print/${encodeURIComponent(noBon)}`, '_blank')
         } else {
             toast.add({ severity: 'error', summary: 'Tidak Ditemukan', detail: 'No Bon tidak ditemukan', life: 2000 })
         }
@@ -640,101 +635,21 @@ const pilihMember = (event: any) => {
 }
 
 // Dialog pilih ukuran untuk reprint
-const reprintUkuranDialog = ref(false)
-const pilihUkuranReprint = (ukuran: '58' | '80') => {
-    reprintUkuranDialog.value = false
-    printStruk(ukuran)
-}
+// const reprintUkuranDialog = ref(false)
+// const pilihUkuranReprint = (ukuran: '58' | '80') => {
+//     reprintUkuranDialog.value = false
+//     printStruk(ukuran)
+// }
 
 // Print
-const printStruk = (ukuran: '58' | '80' = '58') => {
+const printStruk = () => {
     const data = lastStrukData.value
     if (!data) return
     summaryDialog.value = false
-
-    const lebarPx = ukuran === '58' ? '220px' : '302px'
-    const fontSize = ukuran === '58' ? '10px' : '11px'
-    const padding = ukuran === '58' ? '3mm' : '4mm'
-
-    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Struk</title>
-    <style>
-        @page { size: ${ukuran}mm 200mm; margin: 0; }
-        @media print { body { width: ${ukuran}mm !important; } }
-        body {
-            font-family: 'Courier New', monospace; font-size: ${fontSize};
-            padding: ${padding}; width: ${lebarPx}; margin: 0 auto; box-sizing: border-box;
-        }
-        .center { text-align: center; } .right { text-align: right; }
-        .line { border-top: 1px dashed #000; margin: 3px 0; }
-        table { width: 100%; border-collapse: collapse; } td { padding: 1px 0; }
-        .bold { font-weight: bold; }
-        .item-row td { padding: 2px 0; }
-        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    </style></head><body>
-        <div class="center bold">${data.perusahaan?.perush_nama || 'FAFA KOSMETIK'}</div>
-        <div class="center">${data.perusahaan?.perush_alamat || ''}</div>
-        <div class="center">${data.perusahaan?.perush_kota || ''}</div>
-        <div class="line"></div>
-        <div>No : ${data.hdr.so_nomor}</div>
-        <div>Tgl: ${new Date(data.hdr.so_tanggal).toLocaleDateString('id-ID')} ${new Date(data.hdr.so_tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
-        <div>Kasir: ${data.nama_kasir || data.hdr.so_user_kasir}</div>`
-
-    // 🔥 Member: tampilkan nomor + nama
-    if (data.customer && data.hdr.so_cus_kode !== '0000000001') {
-        html += `<div>Member: ${data.hdr.so_cus_kode}</div>`
-        html += `<div>        ${data.customer.cus_nama || ''}</div>`
-    }
-
-    html += `<div class="line"></div><table>`
-
-    // 🔥 Items: 1 baris per item
-    data.items.forEach((item: any) => {
-        const disc = (item.sod_discpr * item.sod_hargakasir / 100) + item.sod_discrp
-        const subTotal = (item.sod_hargakasir - disc) * item.sod_qtykasir
-
-        html += `<tr class="item-row"><td colspan="2">${item.brg_nama_singkat || item.sod_brg_kode}</td></tr>`
-        
-        // 🔥 1 baris: Qty x Harga = Total
-        html += `<tr class="item-row">
-            <td>${item.sod_qtykasir} x ${formatCurrency(item.sod_hargakasir)}</td>
-            <td class="right">= ${formatCurrency(subTotal)}</td>
-        </tr>`
-        
-        if (disc > 0) {
-            html += `<tr><td>Disc</td><td class="right">-${formatCurrency(disc * item.sod_qtykasir)}</td></tr>`
-        }
-    })
-
-    html += `</table><div class="line"></div><table>
-        <tr><td>Grand Total</td><td class="right bold">${formatCurrency(data.hdr.so_amount)}</td></tr>
-        ${data.hdr.so_ongkir > 0 ? `<tr><td>Ongkir</td><td class="right">${formatCurrency(data.hdr.so_ongkir)}</td></tr>` : ''}
-        ${data.hdr.so_disc_faktur > 0 ? `<tr><td>Potongan</td><td class="right">-${formatCurrency(data.hdr.so_disc_faktur)}</td></tr>` : ''}
-        <tr class="bold"><td>TOTAL BAYAR</td><td class="right">${formatCurrency(parseFloat(data.hdr.so_bayar))}</td></tr>
-        ${data.hdr.so_card > 0 ? `<tr><td>  Card</td><td class="right">${formatCurrency(data.hdr.so_card)}</td></tr>` : ''}
-        ${data.hdr.so_voucher > 0 ? `<tr><td>  Voucher</td><td class="right">${formatCurrency(data.hdr.so_voucher)}</td></tr>` : ''}
-        ${data.hdr.so_piutang > 0 ? `<tr><td>  Piutang</td><td class="right">${formatCurrency(data.hdr.so_piutang)}</td></tr>` : ''}
-        ${data.hdr.so_dp > 0 ? `<tr><td>  Cash</td><td class="right">${formatCurrency(data.hdr.so_dp)}</td></tr>` : ''}
-    </table>
-    <div class="line"></div>
-    <table>
-        <tr class="bold"><td>KEMBALI</td><td class="right bold">${formatCurrency(data.hdr.so_kembali)}</td></tr>
-    </table>`
-
-    // 🔥 POIN
-    if (data.poin?.is_member) {
-        html += `<div class="line"></div>
-        <div class="center">Tambah Poin : ${data.poin.tambah}</div>
-        <div class="center bold">Poin Anda : ${data.poin.total.toLocaleString('id-ID')}</div>`
-    }
-
-    html += `<div class="line"></div>
-    <div class="center">TERIMA KASIH</div>
-    <div class="center">ATAS KEPERCAYAAN ANDA</div>
-    <script>window.onload=function(){window.print()}<\/script>
-    </body></html>`
-
-    const win = window.open('', '_blank', `width=${ukuran === '58' ? 240 : 320},height=600`)
-    if (win) { win.document.write(html); win.document.close() }
+    
+    const noBon = data.hdr.so_nomor
+    // 🔥 Buka halaman print terpisah
+    window.open(`/pos/print/${encodeURIComponent(noBon)}`, '_blank')
 }
 
 // Keyboard
