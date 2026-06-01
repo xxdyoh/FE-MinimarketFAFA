@@ -333,10 +333,95 @@ const applyNumericFilter = (field: string, filter: any) => {
     closeFilterPanel(field)
 }
 
+
+// ========== EXPORT ==========
 const exportExcel = () => { exportType.value = 'excel'; exportDialog.value = true }
 const exportPDF = () => { exportType.value = 'pdf'; exportDialog.value = true }
 const exportCSV = () => { exportType.value = 'csv'; exportDialog.value = true }
-const proceedExport = async () => { exportDialog.value = false; toast.add({ severity: 'info', summary: 'Export', detail: 'Segera hadir', life: 2000 }) }
+
+const proceedExport = async () => {
+    exportDialog.value = false
+    if (exportType.value === 'excel') await doExportExcel()
+    else if (exportType.value === 'pdf') doExportPDF()
+    else doExportCSV()
+}
+
+const doExportCSV = () => {
+    let csv = '\uFEFF'
+    const exportData = [...filteredData.value]
+    
+    if (exportTarget.value === 'grid') {
+        const cols = gridColumns.value.map(c => c.field)
+        csv += gridColumns.value.map(c => `"${c.header}"`).join(',') + '\n'
+        exportData.forEach(r => csv += cols.map(c => `"${String(r[c] || '').replace(/"/g, '""')}"`).join(',') + '\n')
+    } else {
+        csv += `"${pivotRowLabel.value}","${pivotResult.value.columns.join('","')}","Total"\n`
+        pivotResult.value.rows.forEach(r => csv += `"${r.label}","${pivotResult.value.columns.map((c: string) => r.values[c] || 0).join('","')}","${r.total}"\n`)
+    }
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a')
+    a.href = url; a.download = `Laporan_Penjualan_Per_Item_${formatDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url)
+    toast.add({ severity: 'success', summary: 'Export CSV', detail: 'Berhasil', life: 2000 })
+}
+
+const doExportPDF = () => {
+    const period = `${startDate.value.toLocaleDateString('id-ID')} - ${endDate.value.toLocaleDateString('id-ID')}`
+    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Laporan Penjualan Per Item</title><style>body{font-family:Arial;padding:20px}h1{font-size:18px;text-align:center;color:#059669}.period{text-align:center;font-size:12px;color:#6b7280;margin-bottom:15px}table{width:100%;border-collapse:collapse;margin:10px 0;font-size:10px}th{background:#10b981;color:white;padding:6px 8px;border:1px solid #059669;font-size:9px}td{padding:5px 8px;border:1px solid #e5e7eb}.tr{text-align:right}</style></head><body><h1>Laporan Penjualan Per Item</h1><div class="period">Periode: ${period}</div>`
+    
+    if (exportTarget.value === 'grid') {
+        html += `<table><thead><tr>${gridColumns.value.map(c => `<th>${c.header}</th>`).join('')}</tr></thead><tbody>`
+        filteredData.value.forEach(r => html += `<tr>${gridColumns.value.map(c => `<td class="${c.align === 'right' ? 'tr' : ''}">${isCurrencyField(c.field) ? formatCurrency(r[c.field]) : (c.field === 'Qty' ? formatNumber(r[c.field]) : (r[c.field] || ''))}</td>`).join('')}</tr>`)
+        html += `</tbody></table>`
+    } else {
+        html += `<table><thead><tr><th>${pivotRowLabel.value}</th>${pivotResult.value.columns.map((c: string) => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead><tbody>`
+        pivotResult.value.rows.forEach(r => html += `<tr><td><strong>${r.label}</strong></td>${pivotResult.value.columns.map((c: string) => `<td class="tr">${formatPivotValue(r.values[c])}</td>`).join('')}<td class="tr"><strong>${formatPivotValue(r.total)}</strong></td></tr>`)
+        html += `<tr style="background:#fef3c7;font-weight:700"><td>TOTAL</td>${pivotResult.value.columns.map((c: string) => `<td class="tr">${formatPivotValue(pivotResult.value.columnTotals[c])}</td>`).join('')}<td class="tr">${formatPivotValue(pivotResult.value.grandTotal)}</td></tr></tbody></table>`
+    }
+    
+    html += `<p style="text-align:right;font-size:9px;color:#9ca3af;margin-top:20px">Dicetak: ${new Date().toLocaleDateString('id-ID')}</p></body></html>`
+    const win = window.open('', '_blank', 'width=1000,height=700')
+    if (win) { win.document.write(html); win.document.close() }
+    toast.add({ severity: 'success', summary: 'Preview PDF', detail: 'Gunakan Print > Save as PDF', life: 3000 })
+}
+
+const doExportExcel = async () => {
+    const ExcelJS = await import('exceljs')
+    const wb = new ExcelJS.Workbook()
+    const hs: any = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } }, alignment: { horizontal: 'center', vertical: 'middle' }, border: { top: { style: 'thin', color: { argb: 'FF059669' } }, bottom: { style: 'thin', color: { argb: 'FF059669' } }, left: { style: 'thin', color: { argb: 'FF059669' } }, right: { style: 'thin', color: { argb: 'FF059669' } } } }
+    const ds: any = { font: { size: 10 }, border: { top: { style: 'thin', color: { argb: 'FFD1D5DB' } }, bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } }, left: { style: 'thin', color: { argb: 'FFD1D5DB' } }, right: { style: 'thin', color: { argb: 'FFD1D5DB' } } } }
+    const ns: any = { ...ds, alignment: { horizontal: 'right', vertical: 'middle' }, numFmt: '#,##0' }
+    
+    if (exportTarget.value === 'grid') {
+        const ws = wb.addWorksheet('Penjualan Per Item')
+        ws.mergeCells('A1:L1'); ws.getCell('A1').value = 'LAPORAN PENJUALAN PER ITEM'; ws.getCell('A1').style = { font: { bold: true, size: 14 } }; ws.getRow(1).height = 30
+        ws.mergeCells('A2:L2'); ws.getCell('A2').value = `Periode: ${startDate.value.toLocaleDateString('id-ID')} - ${endDate.value.toLocaleDateString('id-ID')}`; ws.getCell('A2').style = { font: { size: 10, color: { argb: 'FF6B7280' } } }
+        ws.getRow(4).height = 25; gridColumns.value.forEach((c, i) => { const cell = ws.getRow(4).getCell(i + 1); cell.value = c.header; cell.style = hs })
+        const exportData = [...filteredData.value]
+        exportData.forEach((r, i) => {
+            const dr = ws.getRow(5 + i)
+            gridColumns.value.forEach((c, ci) => { const cell = dr.getCell(ci + 1); const isNum = isCurrencyField(c.field) || c.field === 'Qty'; cell.value = isNum ? (parseFloat(r[c.field]) || 0) : String(r[c.field] ?? ''); cell.style = isNum ? ns : ds })
+        })
+        ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + exportData.length, column: gridColumns.value.length } }; ws.views = [{ state: 'frozen', ySplit: 4 }]
+    } else {
+        const ws = wb.addWorksheet('Pivot Analysis')
+        ws.mergeCells('A1:E1'); ws.getCell('A1').value = `PIVOT: ${pivotRowLabel.value} x ${pivotCol.value} (${pivotData.value})`; ws.getCell('A1').style = { font: { bold: true, size: 14 } }; ws.getRow(1).height = 30
+        const ph = ws.getRow(3); ph.getCell(1).value = pivotRowLabel.value; ph.getCell(1).style = hs
+        pivotResult.value.columns.forEach((c, i) => { const cell = ph.getCell(i + 2); cell.value = c; cell.style = hs })
+        ph.getCell(pivotResult.value.columns.length + 2).value = 'Total'; ph.getCell(pivotResult.value.columns.length + 2).style = hs
+        pivotResult.value.rows.forEach((r, i) => {
+            const dr = ws.getRow(4 + i); dr.getCell(1).value = r.label; dr.getCell(1).style = { ...ds, font: { bold: true } }
+            pivotResult.value.columns.forEach((c, ci) => { const cell = dr.getCell(ci + 2); cell.value = r.values[c] || 0; cell.style = ns })
+            dr.getCell(pivotResult.value.columns.length + 2).value = r.total; dr.getCell(pivotResult.value.columns.length + 2).style = { ...ns, font: { bold: true } }
+        })
+        ws.getColumn(1).width = 28
+    }
+    
+    const buf = await wb.xlsx.writeBuffer(); const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a')
+    a.href = url; a.download = `Laporan_Penjualan_Per_Item_${formatDate(new Date())}.xlsx`; a.click(); URL.revokeObjectURL(url)
+    toast.add({ severity: 'success', summary: 'Export Excel', detail: 'Berhasil', life: 2000 })
+}
 
 onMounted(() => { resetTextFilters(); loadData() })
 </script>

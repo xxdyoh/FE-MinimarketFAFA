@@ -42,27 +42,10 @@
           </div>
         </div>
         <div class="toolbar-right">
-          <Button
-            label="Export Excel"
-            icon="pi pi-file-excel"
-            severity="success"
-            size="small"
-            @click="exportExcel"
-          />
-          <Button
-            label="Export PDF"
-            icon="pi pi-file-pdf"
-            severity="danger"
-            size="small"
-            @click="exportPDF"
-          />
-          <Button
-            label="Export CSV"
-            icon="pi pi-file"
-            severity="info"
-            size="small"
-            @click="exportCSV"
-          />
+          <Button label="Export Excel" icon="pi pi-file-excel" severity="success" size="small" @click="exportExcel" />
+    <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="exportPDF" />
+    <Button label="Export CSV" icon="pi pi-file" severity="info" size="small" @click="exportCSV" />
+
           <Button
             icon="pi pi-refresh"
             severity="secondary"
@@ -338,60 +321,28 @@
       </DataTable>
     </div>
 
-    <Dialog
-      v-model:visible="exportDialog"
-      header="Export Laporan"
-      :modal="true"
-      :style="{ width: '420px' }"
-    >
-      <div class="export-dialog-content">
+    <!-- Export Dialog -->
+<Dialog v-model:visible="exportDialog" header="Export Laporan" :modal="true" :style="{ width: '420px' }">
+    <div class="export-dialog-content">
         <p class="export-dialog-text">Pilih tipe export:</p>
         <div class="export-options">
-          <div
-            class="export-option"
-            :class="{ active: !exportWithDetail }"
-            @click="exportWithDetail = false"
-          >
-            <div class="option-radio">
-              <div
-                class="radio-circle"
-                :class="{ checked: !exportWithDetail }"
-              ></div>
+            <div class="export-option" :class="{ 'active': !exportWithDetail }" @click="exportWithDetail = false">
+                <div class="option-radio"><div class="radio-circle" :class="{ 'checked': !exportWithDetail }"></div></div>
+                <div class="option-icon"><i class="pi pi-file"></i></div>
+                <div class="option-text"><strong>Ringkasan Saja</strong><small>Hanya data header</small></div>
             </div>
-            <div class="option-icon"><i class="pi pi-file"></i></div>
-            <div class="option-text">
-              <strong>Ringkasan Saja</strong><small>Hanya data header</small>
+            <div class="export-option" :class="{ 'active': exportWithDetail }" @click="exportWithDetail = true">
+                <div class="option-radio"><div class="radio-circle" :class="{ 'checked': exportWithDetail }"></div></div>
+                <div class="option-icon"><i class="pi pi-list"></i></div>
+                <div class="option-text"><strong>Dengan Detail Items</strong><small>Header + detail per nota</small></div>
             </div>
-          </div>
-          <div
-            class="export-option"
-            :class="{ active: exportWithDetail }"
-            @click="exportWithDetail = true"
-          >
-            <div class="option-radio">
-              <div
-                class="radio-circle"
-                :class="{ checked: exportWithDetail }"
-              ></div>
-            </div>
-            <div class="option-icon"><i class="pi pi-list"></i></div>
-            <div class="option-text">
-              <strong>Dengan Detail Items</strong
-              ><small>Header + detail per nota</small>
-            </div>
-          </div>
         </div>
-      </div>
-      <template #footer>
+    </div>
+    <template #footer>
         <Button label="Batal" text size="small" @click="exportDialog = false" />
-        <Button
-          label="Export"
-          severity="primary"
-          size="small"
-          @click="proceedExport"
-        />
-      </template>
-    </Dialog>
+        <Button label="Export" severity="primary" size="small" @click="proceedExport" />
+    </template>
+</Dialog>
   </div>
 </template>
 
@@ -424,9 +375,9 @@ const tempColumnFilters = ref<Record<string, any[]>>({});
 const activeColumnFilters = ref<Record<string, any[]>>({});
 const filterSearchTerms = ref<Record<string, string>>({});
 const filterOptionsCache = ref<Record<string, any[]>>({});
-const exportDialog = ref(false);
-const exportWithDetail = ref(true);
-const exportType = ref("excel");
+const exportDialog = ref(false)
+const exportWithDetail = ref(true)
+const exportType = ref<'excel' | 'pdf' | 'csv'>('excel')
 
 const gridColumns = [
   { field: "Nomor", header: "Nomor", width: "120px" },
@@ -635,28 +586,285 @@ const applyColumnFilter = (f: string) => {
   closeFilterPanel(f);
 };
 
-const exportExcel = () => {
-  exportType.value = "excel";
-  exportDialog.value = true;
-};
-const exportPDF = () => {
-  exportType.value = "pdf";
-  exportDialog.value = true;
-};
-const exportCSV = () => {
-  exportType.value = "csv";
-  exportDialog.value = true;
-};
+// Exports
+const exportExcel = () => { exportType.value = 'excel'; openExportDialog() }
+const exportPDF = () => { exportType.value = 'pdf'; openExportDialog() }
+const exportCSV = () => { exportType.value = 'csv'; openExportDialog() }
 
-const proceedExport = () => {
-  exportDialog.value = false;
-  toast.add({
-    severity: "info",
-    summary: "Export",
-    detail: "Fitur export segera hadir",
-    life: 2000,
-  });
-};
+const openExportDialog = () => {
+    if (!filteredData.value.length) {
+        toast.add({ severity: 'warn', summary: 'Peringatan', detail: 'Tidak ada data', life: 2000 }); return
+    }
+    exportDialog.value = true
+}
+
+const loadAllDetails = async () => {
+    const promises = filteredData.value.map(async (row: any) => {
+        if (!detailData.value[row.Nomor]) {
+            try {
+                const res = await $api.get(`/v1/report/penjualan/${row.Nomor}/detail`, {
+                    params: { start_date: formatDate(startDate.value), end_date: formatDate(endDate.value) }
+                })
+                if (res.data.success) detailData.value[row.Nomor] = res.data.data
+            } catch (e) { console.error(e) }
+        }
+    })
+    await Promise.all(promises)
+}
+
+const proceedExport = async () => {
+    exportDialog.value = false
+    if (exportWithDetail.value) {
+        toast.add({ severity: 'info', summary: 'Memproses', detail: 'Mengambil detail...', life: 2000 })
+        await loadAllDetails()
+    }
+    if (exportType.value === 'excel') await doExportExcel()
+    else if (exportType.value === 'pdf') doExportPDF()
+    else doExportCSV()
+}
+
+// ========== EXPORT EXCEL ==========
+// 🔥 EXPORT EXCEL (2 SHEET - RINGKASAN & DETAIL)
+const doExportExcel = async () => {
+    const ExcelJS = await import('exceljs')
+    const wb = new ExcelJS.Workbook()
+    
+    // 🔥 STYLE DEFINITIONS
+    const headerStyle: any = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } },
+        alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+        border: { top: { style: 'thin', color: { argb: 'FF059669' } }, bottom: { style: 'thin', color: { argb: 'FF059669' } }, left: { style: 'thin', color: { argb: 'FF059669' } }, right: { style: 'thin', color: { argb: 'FF059669' } } }
+    }
+    const dataStyle: any = {
+        font: { size: 10, color: { argb: 'FF1F2937' } },
+        border: { top: { style: 'thin', color: { argb: 'FFD1D5DB' } }, bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } }, left: { style: 'thin', color: { argb: 'FFD1D5DB' } }, right: { style: 'thin', color: { argb: 'FFD1D5DB' } } },
+        alignment: { vertical: 'middle' }
+    }
+    const altRowStyle: any = { ...dataStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } } }
+    const numStyle: any = { ...dataStyle, alignment: { horizontal: 'right', vertical: 'middle' }, numFmt: '#,##0' }
+    const titleStyle: any = { font: { bold: true, size: 14, color: { argb: 'FF1F2937' } } }
+    const subtitleStyle: any = { font: { size: 10, color: { argb: 'FF6B7280' } } }
+    
+    // ========================
+    // SHEET 1: RINGKASAN
+    // ========================
+    const ws1 = wb.addWorksheet('Ringkasan')
+    
+    ws1.mergeCells('A1:K1')
+    ws1.getCell('A1').value = 'LAPORAN PENJUALAN BY NOTA'
+    ws1.getCell('A1').style = titleStyle
+    ws1.getRow(1).height = 30
+    
+    ws1.mergeCells('A2:K2')
+    ws1.getCell('A2').value = `Periode: ${startDate.value.toLocaleDateString('id-ID')} - ${endDate.value.toLocaleDateString('id-ID')}`
+    ws1.getCell('A2').style = subtitleStyle
+    ws1.getRow(2).height = 20
+    
+    // Header (Row 4)
+    const headerRow = ws1.getRow(4)
+    headerRow.height = 25
+    gridColumns.forEach((col: any, idx: number) => {
+        const cell = headerRow.getCell(idx + 1)
+        cell.value = col.header
+        cell.style = headerStyle
+    })
+    
+    // Data (mulai Row 5)
+    const exportData = [...filteredData.value]
+    exportData.forEach((row: any, i: number) => {
+        const dataRow = ws1.getRow(5 + i)
+        
+        gridColumns.forEach((col: any, idx: number) => {
+            const cell = dataRow.getCell(idx + 1)
+            let val = row[col.field]
+            
+            if (isCurrencyField(col.field)) {
+                cell.value = parseFloat(val) || 0
+                cell.style = numStyle
+            } else {
+                cell.value = val || ''
+                cell.style = i % 2 === 1 ? altRowStyle : dataStyle
+            }
+        })
+    })
+    
+    // Column widths
+    ws1.getColumn(1).width = 14; ws1.getColumn(2).width = 12; ws1.getColumn(3).width = 10
+    ws1.getColumn(4).width = 22; ws1.getColumn(5).width = 16; ws1.getColumn(6).width = 14
+    ws1.getColumn(7).width = 12; ws1.getColumn(8).width = 14; ws1.getColumn(9).width = 14
+    ws1.getColumn(10).width = 14; ws1.getColumn(11).width = 14
+    
+    ws1.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + exportData.length, column: gridColumns.length } }
+    ws1.views = [{ state: 'frozen', ySplit: 4 }]
+    
+    // ========================
+    // SHEET 2: DETAIL ITEMS
+    // ========================
+    if (exportWithDetail.value) {
+        const ws2 = wb.addWorksheet('Detail Items')
+        
+        ws2.mergeCells('A1:I1')
+        ws2.getCell('A1').value = 'DETAIL ITEMS PENJUALAN'
+        ws2.getCell('A1').style = titleStyle
+        ws2.getRow(1).height = 30
+        
+        ws2.mergeCells('A2:I2')
+        ws2.getCell('A2').value = `Periode: ${startDate.value.toLocaleDateString('id-ID')} - ${endDate.value.toLocaleDateString('id-ID')}`
+        ws2.getCell('A2').style = subtitleStyle
+        ws2.getRow(2).height = 20
+        
+        // Header (Row 4)
+        const detailHeaders = ['No. Nota', 'Customer', 'Kode Brg', 'Nama Barang', 'Sat', 'Qty', 'Harga', 'Disc%', 'DiscRp', 'Nilai']
+        const detailHeaderRow = ws2.getRow(4)
+        detailHeaderRow.height = 25
+        detailHeaders.forEach((h, idx) => {
+            const cell = detailHeaderRow.getCell(idx + 1)
+            cell.value = h
+            cell.style = { ...headerStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } } }
+        })
+        
+        let rowNum = 5
+        exportData.forEach((row: any) => {
+            const details = detailData.value[row.Nomor] || []
+            
+            if (details.length === 0) {
+                const dr = ws2.getRow(rowNum)
+                dr.getCell(1).value = row.Nomor
+                dr.getCell(2).value = row.Customer
+                dr.getCell(3).value = '-'
+                dr.getCell(4).value = '(Tidak ada detail)'
+                for (let c = 5; c <= 10; c++) dr.getCell(c).value = ''
+                for (let c = 1; c <= 10; c++) {
+                    dr.getCell(c).style = { ...dataStyle, font: { bold: true, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } } }
+                }
+                rowNum++
+            } else {
+                details.forEach((detail: any, detailIdx: number) => {
+                    const dr = ws2.getRow(rowNum)
+                    dr.getCell(1).value = detailIdx === 0 ? row.Nomor : ''
+                    dr.getCell(2).value = detailIdx === 0 ? row.Customer : ''
+                    dr.getCell(3).value = detail.Kode || ''
+                    dr.getCell(4).value = detail.Nama || ''
+                    dr.getCell(5).value = detail.Satuan || ''
+                    dr.getCell(6).value = parseInt(detail.Jumlah) || 0
+                    dr.getCell(7).value = parseFloat(detail.Harga) || 0
+                    dr.getCell(8).value = parseInt(detail.Disc) || 0
+                    dr.getCell(9).value = parseFloat(detail.DiscRp) || 0
+                    dr.getCell(10).value = parseFloat(detail.Nilai) || 0
+                    
+                    const isNum = [6, 7, 9, 10]
+                    const isEven = rowNum % 2 === 0
+                    
+                    for (let c = 1; c <= 10; c++) {
+                        if (detailIdx === 0) {
+                            dr.getCell(c).style = {
+                                ...(isNum.includes(c) ? numStyle : dataStyle),
+                                font: { bold: [1, 2].includes(c), size: 10, color: { argb: 'FF1F2937' } },
+                                fill: isEven ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } } : undefined
+                            }
+                        } else {
+                            dr.getCell(c).style = isNum.includes(c) ? numStyle : (isEven ? altRowStyle : dataStyle)
+                        }
+                    }
+                    rowNum++
+                })
+            }
+        })
+        
+        ws2.getColumn(1).width = 14; ws2.getColumn(2).width = 22; ws2.getColumn(3).width = 12
+        ws2.getColumn(4).width = 32; ws2.getColumn(5).width = 7; ws2.getColumn(6).width = 8
+        ws2.getColumn(7).width = 14; ws2.getColumn(8).width = 8; ws2.getColumn(9).width = 12
+        ws2.getColumn(10).width = 16
+        
+        ws2.autoFilter = { from: { row: 4, column: 1 }, to: { row: rowNum - 1, column: 10 } }
+        ws2.views = [{ state: 'frozen', ySplit: 4 }]
+    }
+    
+    const buf = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Laporan_Penjualan_${formatDate(new Date())}${exportWithDetail.value ? '_Lengkap' : ''}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.add({ severity: 'success', summary: 'Export Excel', detail: 'Berhasil', life: 2000 })
+}
+
+// ========== EXPORT CSV ==========
+const doExportCSV = () => {
+    let csv = '\uFEFF'
+    
+    if (exportWithDetail.value) {
+        csv += 'Nomor,Tanggal,Customer,Total,Kode,Nama,Satuan,Qty,Harga,Disc%,DiscRp,Nilai\n'
+        filteredData.value.forEach(row => {
+            const details = detailData.value[row.Nomor] || []
+            if (details.length === 0) {
+                csv += `${row.Nomor},${row.Tanggal},${row.Customer},${row.Total},,,,,,,\n`
+            } else {
+                details.forEach((d: any) => {
+                    csv += `${row.Nomor},${row.Tanggal},${row.Customer},${row.Total},${d.Kode},"${d.Nama}",${d.Satuan},${d.Jumlah},${d.Harga},${d.Disc},${d.DiscRp},${d.Nilai}\n`
+                })
+            }
+        })
+    } else {
+        csv += gridColumns.map(c => `"${c.header}"`).join(',') + '\n'
+        filteredData.value.forEach(r => csv += gridColumns.map(c => `"${String(r[c.field] || '').replace(/"/g, '""')}"`).join(',') + '\n')
+    }
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a = document.createElement('a')
+    a.href = url; a.download = `Laporan_Penjualan_${formatDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url)
+    toast.add({ severity: 'success', summary: 'Export CSV', detail: 'Berhasil', life: 2000 })
+}
+
+// ========== EXPORT PDF ==========
+const doExportPDF = () => {
+    const period = `${startDate.value.toLocaleDateString('id-ID')} - ${endDate.value.toLocaleDateString('id-ID')}`
+    const today = new Date().toLocaleDateString('id-ID')
+    
+    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Laporan Penjualan</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        h1 { font-size: 18px; text-align: center; color: #059669; }
+        .period { text-align: center; font-size: 12px; color: #6b7280; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 10px; }
+        th { background: #10b981; color: white; padding: 6px 8px; border: 1px solid #059669; font-size: 9px; text-transform: uppercase; }
+        td { padding: 5px 8px; border: 1px solid #e5e7eb; }
+        .tr { text-align: right; }
+        .nota-group { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 15px; page-break-inside: avoid; }
+        .nota-header { background: #fef3c7; padding: 8px 12px; font-weight: 700; border-bottom: 1px solid #fcd34d; }
+    </style></head><body>
+    <h1>Laporan Penjualan By Nota</h1>
+    <div class="period">Periode: ${period}</div>`
+    
+    if (exportWithDetail.value) {
+        filteredData.value.forEach(row => {
+            const details = detailData.value[row.Nomor] || []
+            const totalNilai = details.reduce((s: number, d: any) => s + (parseFloat(d.Nilai) || 0), 0)
+            
+            html += `<div class="nota-group">
+                <div class="nota-header">📄 ${row.Nomor} - ${row.Tanggal} | ${row.Customer} | Total: ${formatCurrency(row.Total)}</div>`
+            
+            if (details.length > 0) {
+                html += `<table><tr><th>Kode</th><th>Nama</th><th>Sat</th><th>Qty</th><th>Harga</th><th>Disc%</th><th class="tr">DiscRp</th><th class="tr">Nilai</th></tr>`
+                details.forEach((d: any) => html += `<tr><td>${d.Kode}</td><td>${d.Nama}</td><td>${d.Satuan}</td><td>${d.Jumlah}</td><td class="tr">${formatCurrency(d.Harga)}</td><td>${d.Disc}</td><td class="tr">${formatCurrency(d.DiscRp)}</td><td class="tr">${formatCurrency(d.Nilai)}</td></tr>`)
+                html += `<tr style="background:#f3f4f6;font-weight:700"><td colspan="7" style="text-align:right">Total:</td><td class="tr">${formatCurrency(totalNilai)}</td></tr></table>`
+            }
+            html += `</div>`
+        })
+    } else {
+        html += `<table><thead><tr>${gridColumns.map(c => `<th>${c.header}</th>`).join('')}</tr></thead><tbody>`
+        filteredData.value.forEach(r => html += `<tr>${gridColumns.map(c => `<td class="${c.align === 'right' ? 'tr' : ''}">${currencyFields.includes(c.field) ? formatCurrency(r[c.field]) : (r[c.field] || '')}</td>`).join('')}</tr>`)
+        html += `</tbody></table>`
+    }
+    
+    html += `<p style="text-align:right;font-size:9px;color:#9ca3af;margin-top:20px">Dicetak: ${today}</p></body></html>`
+    
+    const win = window.open('', '_blank', 'width=1000,height=700')
+    if (win) { win.document.write(html); win.document.close() }
+    toast.add({ severity: 'success', summary: 'Preview PDF', detail: 'Gunakan Print > Save as PDF', life: 3000 })
+}
 
 onMounted(() => {
   resetTextFilters();
@@ -946,96 +1154,26 @@ onMounted(() => {
   }
 }
 .export-dialog-content {
-  .export-dialog-text {
-    font-size: 0.9rem;
-    color: var(--text-color-secondary);
-    margin-bottom: 1.25rem;
-  }
-  .export-options {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  .export-option {
-    display: flex;
-    align-items: center;
-    gap: 0.875rem;
-    padding: 1rem 1.25rem;
-    border: 2px solid var(--surface-border);
-    border-radius: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    .option-radio {
-      flex-shrink: 0;
-      .radio-circle {
-        width: 1.25rem;
-        height: 1.25rem;
-        border-radius: 50%;
-        border: 2px solid #cbd5e1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-        &.checked {
-          border-color: var(--primary-500);
-          background: var(--primary-500);
-          position: relative;
-          &::after {
-            content: "";
-            width: 0.5rem;
-            height: 0.5rem;
-            border-radius: 50%;
-            background: white;
-            position: absolute;
-          }
+    .export-dialog-text { font-size: 0.9rem; color: var(--text-color-secondary); margin-bottom: 1.25rem; }
+    .export-options { display: flex; flex-direction: column; gap: 0.75rem; }
+    .export-option {
+        display: flex; align-items: center; gap: 0.875rem; padding: 1rem 1.25rem;
+        border: 2px solid var(--surface-border); border-radius: 0.75rem;
+        cursor: pointer; transition: all 0.2s;
+        .option-radio {
+            .radio-circle {
+                width: 1.25rem; height: 1.25rem; border-radius: 50%;
+                border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center;
+                &.checked { border-color: var(--primary-500); background: var(--primary-500); position: relative;
+                    &::after { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: white; position: absolute; }
+                }
+            }
         }
-      }
+        .option-icon { width: 2.5rem; height: 2.5rem; background: var(--surface-100); border-radius: 0.625rem; display: flex; align-items: center; justify-content: center; i { font-size: 1.25rem; } }
+        .option-text { strong { display: block; font-size: 0.9rem; } small { font-size: 0.75rem; color: var(--text-color-secondary); } }
+        &:hover { border-color: var(--primary-300); background: var(--primary-50); }
+        &.active { border-color: var(--primary-500); background: var(--primary-50); }
     }
-    .option-icon {
-      flex-shrink: 0;
-      width: 2.5rem;
-      height: 2.5rem;
-      background: var(--surface-100);
-      border-radius: 0.625rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      i {
-        font-size: 1.25rem;
-        color: var(--text-color-secondary);
-      }
-    }
-    .option-text {
-      flex: 1;
-      strong {
-        display: block;
-        font-size: 0.9rem;
-        color: var(--text-color);
-        margin-bottom: 0.15rem;
-      }
-      small {
-        font-size: 0.75rem;
-        color: var(--text-color-secondary);
-      }
-    }
-    &:hover {
-      border-color: var(--primary-300);
-      background: var(--primary-50);
-    }
-    &.active {
-      border-color: var(--primary-500);
-      background: var(--primary-50);
-      .option-icon {
-        background: var(--primary-100);
-        i {
-          color: var(--primary-600);
-        }
-      }
-      .option-text strong {
-        color: var(--primary-700);
-      }
-    }
-  }
 }
 @media (max-width: 768px) {
   .report-header {

@@ -123,8 +123,8 @@ onMounted(() => {
 .print-container {
     width: 80mm;
     margin: 0 auto;
-    font-family: 'Courier New', monospace;
-    font-size: 10px;
+    font-family: Calibri, sans-serif;
+    font-size: 15px;
     color: #000;
     line-height: 1.3;
     padding: 2mm;
