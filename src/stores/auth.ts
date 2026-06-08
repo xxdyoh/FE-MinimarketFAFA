@@ -15,7 +15,7 @@ export const useAuthStore = defineStore('auth', {
             this.token = token
             this.isLoggedIn = true
             // ✅ Ambil userId dari data user
-            this.userId = user?.id || user?.user_id || user?.kode || 1
+            this.userId = user?.user_id
 
             if (process.client) {
                 localStorage.setItem('auth_user', JSON.stringify(user))
@@ -57,7 +57,7 @@ export const useAuthStore = defineStore('auth', {
                     this.user = JSON.parse(user)
                     this.token = token
                     this.isLoggedIn = true
-                    this.userId = userId || JSON.parse(user)?.id || JSON.parse(user)?.user_id || 1  // ✅ Restore
+                    this.userId = userId || JSON.parse(user)?.user_id
                     return true
                 }
             }

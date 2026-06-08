@@ -1,20 +1,20 @@
+<!-- layouts/AppTopbar.vue - bagian script saja yang diupdate -->
 <script setup>
 import { useLayout } from "~/layouts/composables/layout.js";
 import AppConfigurator from "~/layouts/AppConfigurator.vue";
-import { useMenu } from "~/layouts/composables/menu.js";
+import { useMenu } from "~/layouts/composables/menu.js"; // ✅ TAMBAHKAN INI
 import { useAuthStore } from "~/stores/auth";
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
 const { onMenuToggle, toggleDarkMode, isDarkTheme, layoutConfig } = useLayout();
-const { model } = useMenu();
+const { model } = useMenu(); // ✅ TAMBAHKAN INI
 const authStore = useAuthStore();
 
 const authPaths = ['/auth/login', '/auth/access', '/auth/error', '/landing']
 const isAuthPage = computed(() => authPaths.includes(route.path))
 
-// Fungsi logout
 const handleLogout = async () => {
     await authStore.logout();
     navigateTo('/auth/login');
@@ -23,29 +23,30 @@ const handleLogout = async () => {
 
 <template>
     <div class="layout-topbar">
-        <!-- Left Section: Logo & Mobile Menu Button -->
+        <!-- Left Section: Logo & Menu Button -->
         <div class="layout-topbar-left">
+            <!-- Hamburger menu button -->
             <button 
-                class="layout-menu-button layout-topbar-action" 
-                @click="onMenuToggle" 
-                v-show="layoutConfig.menuMode !== 'horizontal'"
-            >
-                <i class="pi pi-bars"></i>
-            </button>
+    class="layout-menu-button layout-topbar-action" 
+    @click="onMenuToggle"
+    v-show="layoutConfig.menuMode !== 'horizontal'"
+    aria-label="Toggle menu"
+>
+    <i class="pi pi-bars"></i>
+</button>
             
             <router-link to="/" class="layout-topbar-logo">
-                <!-- <img src="/logo-bsm.svg" alt="Logo" class="logo-img" /> -->
                 <span class="logo-text">FAFA KOSMETIK</span>
             </router-link>
         </div>
 
-        <!-- Center Section: Horizontal Menu -->
+        <!-- Center: Horizontal Menu -->
         <div 
             class="layout-topbar-menu-wrapper" 
             v-if="layoutConfig.menuMode === 'horizontal'"
         >
             <Menubar :model="model" class="horizontal-menu">
-                <template #item="{ item, props, hasSubmenu, root }">
+                <template #item="{ item, props, hasSubmenu }">
                     <router-link 
                         v-if="item.to" 
                         v-slot="{ href, navigate }" 
@@ -98,22 +99,22 @@ const handleLogout = async () => {
             
             <!-- Theme Configurator -->
             <div class="relative">
-    <button
-        v-styleclass="{ 
-            selector: '@next', 
-            enterFromClass: 'hidden', 
-            enterActiveClass: 'animate-scalein', 
-            leaveToClass: 'hidden', 
-            leaveActiveClass: 'animate-fadeout', 
-            hideOnOutsideClick: true 
-        }"
-        type="button"
-        class="theme-config-btn"
-    >
-        <i class="pi pi-palette"></i>
-    </button>
-    <AppConfigurator />
-</div>
+                <button
+                    v-styleclass="{ 
+                        selector: '@next', 
+                        enterFromClass: 'hidden', 
+                        enterActiveClass: 'animate-scalein', 
+                        leaveToClass: 'hidden', 
+                        leaveActiveClass: 'animate-fadeout', 
+                        hideOnOutsideClick: true 
+                    }"
+                    type="button"
+                    class="layout-topbar-action"
+                >
+                    <i class="pi pi-palette"></i>
+                </button>
+                <AppConfigurator />
+            </div>
             
             <!-- User Menu -->
             <div class="relative">
@@ -159,6 +160,7 @@ const handleLogout = async () => {
                 </div>
             </div>
         </div>
+
     </div>
 </template>
 
@@ -192,15 +194,22 @@ const handleLogout = async () => {
         font-weight: 600;
         text-decoration: none;
         
-        .logo-img {
-            height: 2.5rem;
-            width: auto;
-        }
-        
         .logo-text {
             font-size: 1.125rem;
             font-weight: 700;
             letter-spacing: 0.5px;
+        }
+    }
+    
+    .layout-menu-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        
+        @media (min-width: 992px) {
+            .layout-wrapper.layout-static:not(.layout-static-inactive) & {
+                display: none;
+            }
         }
     }
     
@@ -226,13 +235,6 @@ const handleLogout = async () => {
                 
                 &:hover {
                     background: var(--surface-100);
-                }
-            }
-            
-            :deep(.p-menuitem.active) {
-                .p-menuitem-link {
-                    background: var(--primary-50);
-                    color: var(--primary-700);
                 }
             }
         }
@@ -300,25 +302,6 @@ const handleLogout = async () => {
         
         i {
             font-size: 1.25rem;
-            color: var(--text-color); // ✅ Default icon color
-        }
-        
-        // 🔥 THEME CONFIGURATOR BUTTON - FORCE COLOR
-        &.layout-topbar-action-highlight {
-            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
-            
-            i {
-                color: #ffffff !important; // ✅ FORCE WHITE
-                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-            }
-            
-            &:hover {
-                background: linear-gradient(135deg, var(--primary-600), var(--primary-700));
-                
-                i {
-                    color: #ffffff !important;
-                }
-            }
         }
     }
     
@@ -341,54 +324,6 @@ const handleLogout = async () => {
         .user-arrow {
             font-size: 0.75rem;
             color: var(--text-color-secondary);
-        }
-    }
-}
-
-.theme-config-btn {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 50%;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s ease;
-    
-    // Light theme default
-    background: #f3f4f6;
-    
-    i {
-        font-size: 1.25rem;
-        color: #374151;
-    }
-    
-    &:hover {
-        background: #e5e7eb;
-        
-        i {
-            color: #111827;
-        }
-    }
-}
-
-
-// Dark mode
-:global(.app-dark) {
-    .theme-config-btn {
-        background: #374151;
-        
-        i {
-            color: #e5e7eb;
-        }
-        
-        &:hover {
-            background: #4b5563;
-            
-            i {
-                color: #ffffff;
-            }
         }
     }
 }

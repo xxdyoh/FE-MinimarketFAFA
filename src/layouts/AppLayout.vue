@@ -1,17 +1,16 @@
+<!-- layouts/AppLayout.vue -->
 <template>
     <div class="layout-wrapper" :class="containerClass">
-        <app-topbar></app-topbar>
-        <app-sidebar v-if="layoutConfig.menuMode !== 'horizontal'"></app-sidebar>
+        <app-topbar />
+        <app-sidebar />
+        
         <div class="layout-main-container">
-            <!-- Tab Bar - SELALU MUNCUL -->
             <TabBar v-if="tabsStore.isReady && tabsStore.tabs.length > 0" />
-            
             <div class="layout-main">
-                <NuxtPage keepalive :keepalive-props="{ max: 10 }" />
+                <NuxtPage />
             </div>
-            <app-footer></app-footer>
+            <app-footer />
         </div>
-        <div class="layout-mask animate-fadein"></div>
     </div>
     <Toast />
 </template>
@@ -45,13 +44,30 @@ const containerClass = computed(() => {
 </script>
 
 <style lang="scss" scoped>
+.layout-wrapper {
+    min-height: 100vh;
+}
+
 .layout-main-container {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
     justify-content: space-between;
     padding: 4.5rem 1.5rem 0 1.5rem;
-    transition: margin-left var(--layout-section-transition-duration);
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    // Desktop: Static mode dengan sidebar terbuka
+    @media (min-width: 992px) {
+        .layout-wrapper.layout-static:not(.layout-static-inactive) & {
+            margin-left: 17rem;
+        }
+    }
+
+    // Tablet & Mobile
+    @media (max-width: 991px) {
+        margin-left: 0 !important;
+        padding: 4.5rem 1rem 0 1rem;
+    }
 }
 
 .layout-main {
