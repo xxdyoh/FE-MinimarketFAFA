@@ -49,12 +49,21 @@
                             <div class="col-header">
                                 <span class="col-title">{{ col.header }}</span>
                                 <div class="col-icons">
-                                    <button class="col-filter-btn" :class="{ 'active': hasColumnFilter(col.field) }" @click.stop="openColumnFilter(col, $event)">
+                                    <button class="col-filter-btn" :class="{ 'active': hasColumnFilter(col.field) || numericFilters[col.field] }" @click.stop="openColumnFilter(col, $event)">
                                         <i class="pi pi-filter"></i>
                                     </button>
                                 </div>
                                 <OverlayPanel :ref="(el) => setFilterOverlayRef(col.field, el)" @hide="onFilterPanelHide(col.field)">
-                                    <div class="mini-filter">
+                                    <!-- NUMERIC FILTER untuk number/currency -->
+                                    <NumericFilter 
+                                        v-if="isNumericField(col)"
+                                        :label="col.header"
+                                        :currentFilter="numericFilters[col.field]"
+                                        @apply="(f: any) => applyNumericFilter(col.field, f)"
+                                        @close="closeFilterPanel(col.field)"
+                                    />
+                                    <!-- MULTI-SELECT untuk text -->
+                                    <div v-else class="mini-filter">
                                         <div class="mini-filter-head"><span>Filter {{ col.header }}</span><Button icon="pi pi-times" text rounded size="small" @click="closeFilterPanel(col.field)" /></div>
                                         <div class="mini-filter-search"><i class="pi pi-search"></i><input v-model="filterSearchTerms[col.field]" placeholder="Cari..." class="mini-filter-input" /></div>
                                         <div class="mini-filter-actions"><button @click="selectAll(col.field)">Pilih Semua</button><button @click="clearFilter(col.field)">Bersihkan</button></div>
@@ -69,7 +78,7 @@
                         </template>
                         <template v-if="col.type === 'currency'" #body="{ data }"><span class="text-currency">{{ formatCurrency(data[col.field]) }}</span></template>
                         <template v-else-if="col.type === 'number'" #body="{ data }"><span class="text-number">{{ formatNumber(data[col.field]) }}</span></template>
-                        <!-- Footer -->
+                        <!-- Footer TOTAL -->
                         <template v-if="col.field === 'Kode'" #footer><span class="footer-label">TOTAL</span></template>
                         <template v-else-if="col.field === 'Nilai'" #footer><span class="footer-value">{{ formatCurrency(totalNilai) }}</span></template>
                     </Column>
@@ -83,6 +92,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useToast } from "primevue/usetoast";
 import OverlayPanel from "primevue/overlaypanel";
+import NumericFilter from "~/components/report/NumericFilter.vue";
 
 definePageMeta({ layout: "default" });
 
@@ -100,6 +110,7 @@ const tempColumnFilters = ref<Record<string, any[]>>({});
 const activeColumnFilters = ref<Record<string, any[]>>({});
 const filterSearchTerms = ref<Record<string, string>>({});
 const filterOptionsCache = ref<Record<string, any[]>>({});
+const numericFilters = ref<Record<string, any>>({});
 
 const filterColumns = [
     { field: "Kode", header: "Kode", width: "100px", minWidth: "85px" },
@@ -113,6 +124,8 @@ const filterColumns = [
     { field: "Min_Stok", header: "Min Stok", width: "75px", minWidth: "65px", align: "center", type: "number" },
 ];
 
+const isNumericField = (col: any) => col.type === "number" || col.type === "currency";
+
 const filterableColumns = [
     { field: "Kode", header: "Kode" }, { field: "Nama", header: "Nama" },
     { field: "Kategori", header: "Kategori" }, { field: "Gudang", header: "Gudang" },
@@ -123,14 +136,50 @@ const activeFiltersCount = computed(() => {
     let c = 0;
     Object.keys(activeColumnFilters.value).forEach(k => { if (activeColumnFilters.value[k]?.length > 0) c++; });
     Object.keys(activeTextFilters.value).forEach(k => { if (activeTextFilters.value[k]?.trim()) c++; });
+    Object.keys(numericFilters.value).forEach(k => { if (numericFilters.value[k]) c++; });
     return c;
 });
+
+// Helper evaluasi kondisi
+const evaluateCondition = (row: any, field: string, operator: string, val1: any, val2: any): boolean => {
+    const rawVal = row[field];
+    const v = parseFloat(rawVal) || 0;
+    const v1 = parseFloat(val1) || 0;
+    const v2 = parseFloat(val2) || 0;
+    switch (operator) {
+        case "eq": return v === v1;
+        case "neq": return v !== v1;
+        case "gt": return v > v1;
+        case "gte": return v >= v1;
+        case "lt": return v < v1;
+        case "lte": return v <= v1;
+        case "between": return v >= v1 && v <= v2;
+        default: return true;
+    }
+};
 
 const filteredData = computed(() => {
     let r = [...data.value];
     if (searchKeyword.value) { const kw = searchKeyword.value.toLowerCase(); r = r.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(kw))); }
     Object.keys(activeColumnFilters.value).forEach(f => { const v = activeColumnFilters.value[f]; if (v?.length > 0) r = r.filter(row => v.includes(String(row[f]))); });
     Object.keys(activeTextFilters.value).forEach(f => { const v = activeTextFilters.value[f]?.toLowerCase(); if (v) r = r.filter(row => String(row[f] || "").toLowerCase().includes(v)); });
+    
+    // Numeric filter dengan AND/OR
+    Object.keys(numericFilters.value).forEach(field => {
+        const filter = numericFilters.value[field]; if (!filter) return;
+        
+        r = r.filter(row => {
+            const cond1 = evaluateCondition(row, field, filter.operator1, filter.value1, filter.value1b);
+            
+            if (!filter.operator2 || (filter.value2 === null || filter.value2 === undefined || filter.value2 === '')) {
+                return cond1;
+            }
+            
+            const cond2 = evaluateCondition(row, field, filter.operator2, filter.value2, filter.value2b);
+            return filter.logic === 'or' ? (cond1 || cond2) : (cond1 && cond2);
+        });
+    });
+    
     return r;
 });
 
@@ -150,10 +199,24 @@ const loadData = async () => {
 
 const resetTextFilters = () => { filterableColumns.forEach(c => textFilters.value[c.field] = ""); activeTextFilters.value = {}; };
 const applyTextFilters = () => { activeTextFilters.value = {}; filterableColumns.forEach(c => { if (textFilters.value[c.field]?.trim()) activeTextFilters.value[c.field] = textFilters.value[c.field].trim(); }); showTextFilter.value = false; };
-const clearAllFilters = () => { searchKeyword.value = ""; activeColumnFilters.value = {}; activeTextFilters.value = {}; textFilters.value = {}; tempColumnFilters.value = {}; };
-const buildFilterOptions = () => { filterableColumns.forEach(col => { const m = new Map<string, number>(); data.value.forEach(r => { const v = String(r[col.field] || ""); if (v) m.set(v, (m.get(v) || 0) + 1); }); filterOptionsCache.value[col.field] = Array.from(m.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label)); }); };
+
+const buildFilterOptions = () => {
+    filterColumns.forEach(col => {
+        if (isNumericField(col)) return;
+        const m = new Map<string, number>();
+        data.value.forEach(r => { const v = String(r[col.field] || ""); if (v) m.set(v, (m.get(v) || 0) + 1); });
+        filterOptionsCache.value[col.field] = Array.from(m.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label));
+    });
+};
+
 const setFilterOverlayRef = (f: string, el: any) => { if (el) filterOverlays.value[f] = el; };
-const openColumnFilter = (col: any, e: Event) => { const o = filterOverlays.value[col.field]; if (o) { if (!tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]; o.toggle(e); } };
+const openColumnFilter = (col: any, e: Event) => { 
+    const o = filterOverlays.value[col.field]; 
+    if (o) { 
+        if (!isNumericField(col) && !tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]; 
+        o.toggle(e); 
+    } 
+};
 const closeFilterPanel = (f: string) => filterOverlays.value[f]?.hide();
 const onFilterPanelHide = (f: string) => { tempColumnFilters.value[f] = [...(activeColumnFilters.value[f] || [])]; };
 const getFilteredOptions = (f: string) => { const o = filterOptionsCache.value[f] || [], t = filterSearchTerms.value[f]?.toLowerCase() || ""; return t ? o.filter(opt => opt.label.toLowerCase().includes(t)) : o; };
@@ -161,6 +224,7 @@ const selectAll = (f: string) => { tempColumnFilters.value[f] = (filterOptionsCa
 const clearFilter = (f: string) => { tempColumnFilters.value[f] = []; };
 const hasColumnFilter = (f: string) => activeColumnFilters.value[f]?.length > 0;
 const applyColumnFilter = (f: string) => { activeColumnFilters.value[f] = [...(tempColumnFilters.value[f] || [])]; closeFilterPanel(f); };
+const applyNumericFilter = (field: string, filter: any) => { if (filter) numericFilters.value[field] = filter; else delete numericFilters.value[field]; closeFilterPanel(field); };
 
 const exportExcel = async () => {
     const ExcelJS = await import("exceljs"); const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet("Persediaan");

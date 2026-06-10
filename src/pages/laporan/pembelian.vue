@@ -53,7 +53,6 @@
                         <div class="table-empty"><i class="pi pi-inbox"></i><span>Tidak ada data</span></div>
                     </template>
 
-                    <!-- Expander Column -->
                     <Column expander style="width: 2.5rem; minWidth: 2.5rem;" />
 
                     <Column v-for="col in filterColumns" :key="col.field" :field="col.field" :sortable="true" :style="{ width: col.width, minWidth: col.minWidth || '60px', textAlign: col.align || 'left' }">
@@ -61,12 +60,22 @@
                             <div class="col-header">
                                 <span class="col-title">{{ col.header }}</span>
                                 <div class="col-icons">
-                                    <button class="col-filter-btn" :class="{ 'active': hasColumnFilter(col.field) }" @click.stop="openColumnFilter(col, $event)">
+                                    <button class="col-filter-btn" :class="{ 'active': hasColumnFilter(col.field) || numericFilters[col.field] }" @click.stop="openColumnFilter(col, $event)">
                                         <i class="pi pi-filter"></i>
                                     </button>
                                 </div>
                                 <OverlayPanel :ref="(el) => setFilterOverlayRef(col.field, el)" @hide="onFilterPanelHide(col.field)">
-                                    <div class="mini-filter">
+                                    <!-- NUMERIC FILTER untuk currency & tanggal -->
+                                    <NumericFilter 
+                                        v-if="isNumericField(col) || col.field === 'Tanggal'"
+                                        :label="col.header"
+                                        :currentFilter="numericFilters[col.field]"
+                                        :isDate="col.field === 'Tanggal'"
+                                        @apply="(f: any) => applyNumericFilter(col.field, f)"
+                                        @close="closeFilterPanel(col.field)"
+                                    />
+                                    <!-- MULTI-SELECT untuk text -->
+                                    <div v-else class="mini-filter">
                                         <div class="mini-filter-head"><span>Filter {{ col.header }}</span><Button icon="pi pi-times" text rounded size="small" @click="closeFilterPanel(col.field)" /></div>
                                         <div class="mini-filter-search"><i class="pi pi-search"></i><input v-model="filterSearchTerms[col.field]" placeholder="Cari..." class="mini-filter-input" /></div>
                                         <div class="mini-filter-actions"><button @click="selectAll(col.field)">Pilih Semua</button><button @click="clearFilter(col.field)">Bersihkan</button></div>
@@ -83,23 +92,16 @@
                         <template v-else-if="col.field === 'Status_Bayar'" #body="{ data }">
                             <span class="status-badge" :class="data.Status_Bayar === 'Sudah' ? 'status-sudah' : 'status-belum'">{{ data.Status_Bayar }}</span>
                         </template>
-                        <!-- Footer TOTAL -->
                         <template v-if="col.field === 'Nomor'" #footer><span class="footer-label">TOTAL</span></template>
                         <template v-else-if="col.field === 'Total'" #footer><span class="footer-value">{{ formatCurrency(totalAll) }}</span></template>
                         <template v-else-if="col.field === 'Retur'" #footer><span class="footer-value">{{ formatCurrency(totalRetur) }}</span></template>
                         <template v-else-if="col.field === 'Bayar'" #footer><span class="footer-value">{{ formatCurrency(totalBayar) }}</span></template>
                     </Column>
 
-                    <!-- Detail Row -->
                     <template #expansion="slotProps">
                         <div class="detail-content">
-                            <div class="detail-header">
-                                <i class="pi pi-list"></i>
-                                <span>Detail Items - {{ slotProps.data.Nomor }}</span>
-                            </div>
-                            <div v-if="detailLoading[slotProps.data.Nomor]" class="detail-loading">
-                                <i class="pi pi-spinner pi-spin"></i><span>Memuat detail...</span>
-                            </div>
+                            <div class="detail-header"><i class="pi pi-list"></i><span>Detail Items - {{ slotProps.data.Nomor }}</span></div>
+                            <div v-if="detailLoading[slotProps.data.Nomor]" class="detail-loading"><i class="pi pi-spinner pi-spin"></i><span>Memuat detail...</span></div>
                             <DataTable v-else :value="detailData[slotProps.data.Nomor] || []" class="detail-table" size="small">
                                 <Column field="Kode" header="Kode" style="width: 80px" />
                                 <Column field="Nama" header="Nama Barang" style="min-width: 180px" />
@@ -142,6 +144,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useToast } from "primevue/usetoast";
 import OverlayPanel from "primevue/overlaypanel";
+import NumericFilter from "~/components/report/NumericFilter.vue";
 
 definePageMeta({ layout: "default" });
 
@@ -164,6 +167,7 @@ const tempColumnFilters = ref<Record<string, any[]>>({});
 const activeColumnFilters = ref<Record<string, any[]>>({});
 const filterSearchTerms = ref<Record<string, string>>({});
 const filterOptionsCache = ref<Record<string, any[]>>({});
+const numericFilters = ref<Record<string, any>>({});
 
 const filterColumns = [
     { field: "Nomor", header: "Nomor", width: "120px", minWidth: "100px" },
@@ -175,6 +179,8 @@ const filterColumns = [
     { field: "Status_Bayar", header: "Status", width: "90px", minWidth: "80px", align: "center" },
 ];
 
+const isNumericField = (col: any) => col.type === "currency" || col.field === "Tanggal";
+
 const filterableColumns = [
     { field: "Nomor", header: "Nomor" },
     { field: "Supplier", header: "Supplier" },
@@ -185,14 +191,69 @@ const activeFiltersCount = computed(() => {
     let c = 0;
     Object.keys(activeColumnFilters.value).forEach(k => { if (activeColumnFilters.value[k]?.length > 0) c++; });
     Object.keys(activeTextFilters.value).forEach(k => { if (activeTextFilters.value[k]?.trim()) c++; });
+    Object.keys(numericFilters.value).forEach(k => { if (numericFilters.value[k]) c++; });
     return c;
 });
+
+// Helper evaluasi kondisi
+const evaluateCondition = (row: any, field: string, operator: string, val1: any, val2: any, isDate: boolean): boolean => {
+    const rawVal = row[field];
+    
+    if (isDate) {
+        // ✅ Bandingkan sebagai string YYYY-MM-DD
+        const v = String(rawVal || '');
+        const v1 = String(val1 || '');
+        const v2 = String(val2 || '');
+        switch (operator) {
+            case "eq": return v === v1;
+            case "neq": return v !== v1;
+            case "gt": return v > v1;   // String comparison works for YYYY-MM-DD
+            case "gte": return v >= v1;
+            case "lt": return v < v1;
+            case "lte": return v <= v1;
+            case "between": return v >= v1 && v <= v2;
+            default: return true;
+        }
+    } else {
+        const v = parseFloat(rawVal) || 0;
+        const v1 = parseFloat(val1) || 0;
+        const v2 = parseFloat(val2) || 0;
+        switch (operator) {
+            case "eq": return v === v1;
+            case "neq": return v !== v1;
+            case "gt": return v > v1;
+            case "gte": return v >= v1;
+            case "lt": return v < v1;
+            case "lte": return v <= v1;
+            case "between": return v >= v1 && v <= v2;
+            default: return true;
+        }
+    }
+};
 
 const filteredData = computed(() => {
     let r = [...data.value];
     if (searchKeyword.value) { const kw = searchKeyword.value.toLowerCase(); r = r.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(kw))); }
     Object.keys(activeColumnFilters.value).forEach(f => { const v = activeColumnFilters.value[f]; if (v?.length > 0) r = r.filter(row => v.includes(String(row[f]))); });
     Object.keys(activeTextFilters.value).forEach(f => { const v = activeTextFilters.value[f]?.toLowerCase(); if (v) r = r.filter(row => String(row[f] || "").toLowerCase().includes(v)); });
+    
+    // Numeric filter (termasuk Tanggal) dengan AND/OR
+    Object.keys(numericFilters.value).forEach(field => {
+        const filter = numericFilters.value[field]; if (!filter) return;
+        const isDate = filter.type === 'date';
+        
+        r = r.filter(row => {
+            const cond1 = evaluateCondition(row, field, filter.operator1, filter.value1, filter.value1b, isDate);
+            
+            if (!filter.operator2 || (filter.value2 === null || filter.value2 === undefined || filter.value2 === '')) {
+                return cond1;
+            }
+            
+            const cond2 = evaluateCondition(row, field, filter.operator2, filter.value2, filter.value2b, isDate);
+            return filter.logic === 'or' ? (cond1 || cond2) : (cond1 && cond2);
+        });
+    });
+    
     return r;
 });
 
@@ -217,20 +278,31 @@ const onRowExpand = async (event: any) => {
     const nomor = event.data.Nomor;
     if (!detailData.value[nomor]) {
         detailLoading.value[nomor] = true;
-        try {
-            const res = await $api.get(`/v1/report/pembelian/${nomor}/detail`, { params: { start_date: formatDate(startDate.value), end_date: formatDate(endDate.value) } });
-            if (res.data.success) detailData.value[nomor] = res.data.data;
-        } catch (e) { console.error(e); }
+        try { const res = await $api.get(`/v1/report/pembelian/${nomor}/detail`, { params: { start_date: formatDate(startDate.value), end_date: formatDate(endDate.value) } }); if (res.data.success) detailData.value[nomor] = res.data.data; } catch (e) { console.error(e); }
         finally { detailLoading.value[nomor] = false; }
     }
 };
 
 const resetTextFilters = () => { filterableColumns.forEach(c => textFilters.value[c.field] = ""); activeTextFilters.value = {}; };
 const applyTextFilters = () => { activeTextFilters.value = {}; filterableColumns.forEach(c => { if (textFilters.value[c.field]?.trim()) activeTextFilters.value[c.field] = textFilters.value[c.field].trim(); }); showTextFilter.value = false; };
-const clearAllFilters = () => { searchKeyword.value = ""; activeColumnFilters.value = {}; activeTextFilters.value = {}; textFilters.value = {}; tempColumnFilters.value = {}; };
-const buildFilterOptions = () => { filterableColumns.forEach(col => { const m = new Map<string, number>(); data.value.forEach(r => { const v = String(r[col.field] || ""); if (v) m.set(v, (m.get(v) || 0) + 1); }); filterOptionsCache.value[col.field] = Array.from(m.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label)); }); };
+
+const buildFilterOptions = () => {
+    filterColumns.forEach(col => {
+        if (isNumericField(col)) return;
+        const m = new Map<string, number>();
+        data.value.forEach(r => { const v = String(r[col.field] || ""); if (v) m.set(v, (m.get(v) || 0) + 1); });
+        filterOptionsCache.value[col.field] = Array.from(m.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label));
+    });
+};
+
 const setFilterOverlayRef = (f: string, el: any) => { if (el) filterOverlays.value[f] = el; };
-const openColumnFilter = (col: any, e: Event) => { const o = filterOverlays.value[col.field]; if (o) { if (!tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]; o.toggle(e); } };
+const openColumnFilter = (col: any, e: Event) => { 
+    const o = filterOverlays.value[col.field]; 
+    if (o) { 
+        if (!isNumericField(col) && !tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]; 
+        o.toggle(e); 
+    } 
+};
 const closeFilterPanel = (f: string) => filterOverlays.value[f]?.hide();
 const onFilterPanelHide = (f: string) => { tempColumnFilters.value[f] = [...(activeColumnFilters.value[f] || [])]; };
 const getFilteredOptions = (f: string) => { const o = filterOptionsCache.value[f] || [], t = filterSearchTerms.value[f]?.toLowerCase() || ""; return t ? o.filter(opt => opt.label.toLowerCase().includes(t)) : o; };
@@ -238,6 +310,7 @@ const selectAll = (f: string) => { tempColumnFilters.value[f] = (filterOptionsCa
 const clearFilter = (f: string) => { tempColumnFilters.value[f] = []; };
 const hasColumnFilter = (f: string) => activeColumnFilters.value[f]?.length > 0;
 const applyColumnFilter = (f: string) => { activeColumnFilters.value[f] = [...(tempColumnFilters.value[f] || [])]; closeFilterPanel(f); };
+const applyNumericFilter = (field: string, filter: any) => { if (filter) numericFilters.value[field] = filter; else delete numericFilters.value[field]; closeFilterPanel(field); };
 
 const exportDialog = ref(false); const exportWithDetail = ref(true); const exportType = ref<"excel" | "pdf" | "csv">("excel");
 const exportExcel = () => { exportType.value = "excel"; exportDialog.value = true; };
@@ -259,46 +332,37 @@ const doExportExcel = async () => {
     const ExcelJS = await import("exceljs"); const wb = new ExcelJS.Workbook();
     const hs: any = { font: { bold: true, color: { argb: "FFFFFFFF" }, size: 10 }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF10B981" } }, alignment: { horizontal: "center", vertical: "middle" } };
     const ds: any = { font: { size: 9 } }, ns: any = { ...ds, alignment: { horizontal: "right" }, numFmt: "#,##0" };
-    const ws1 = wb.addWorksheet("Ringkasan");
-    ws1.getRow(1).height = 22; ws1.getRow(4).height = 22;
+    const ws1 = wb.addWorksheet("Ringkasan"); ws1.getRow(4).height = 22;
     filterColumns.forEach((c, i) => { const cell = ws1.getRow(4).getCell(i + 1); cell.value = c.header; cell.style = hs; });
     filteredData.value.forEach((r, i) => { const dr = ws1.getRow(5 + i); filterColumns.forEach((c, ci) => { const cell = dr.getCell(ci + 1); cell.value = c.type === "currency" ? (parseFloat(r[c.field]) || 0) : String(r[c.field] ?? ""); cell.style = c.type === "currency" ? ns : ds; }); });
     ws1.autoFilter = { from: "A4", to: `G${4 + filteredData.value.length}` }; ws1.views = [{ state: "frozen", ySplit: 4 }];
-
     if (exportWithDetail.value) {
-        const ws2 = wb.addWorksheet("Detail Items");
-        ws2.getRow(1).height = 22; ws2.getRow(4).height = 22;
-        ["No. Nota", "Supplier", "Kode", "Nama Barang", "Sat", "Qty", "Harga", "Disc%", "Nilai"].forEach((h, i) => { const cell = ws2.getRow(4).getCell(i + 1); cell.value = h; cell.style = { ...hs, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF3B82F6" } } }; });
-        let rn = 5;
-        filteredData.value.forEach(row => {
-            const details = detailData.value[row.Nomor] || [];
-            if (details.length === 0) { const dr = ws2.getRow(rn); dr.getCell(1).value = row.Nomor; dr.getCell(2).value = row.Supplier; dr.getCell(4).value = "(Tidak ada detail)"; rn++; }
-            else details.forEach((d, di) => { const dr = ws2.getRow(rn); dr.getCell(1).value = di === 0 ? row.Nomor : ""; dr.getCell(2).value = di === 0 ? row.Supplier : ""; dr.getCell(3).value = d.Kode || ""; dr.getCell(4).value = d.Nama || ""; dr.getCell(5).value = d.Satuan || ""; dr.getCell(6).value = parseInt(d.Jumlah) || 0; dr.getCell(7).value = parseFloat(d.Harga) || 0; dr.getCell(8).value = parseInt(d.Disc) || 0; dr.getCell(9).value = parseFloat(d.Nilai) || 0; [6, 7, 9].forEach(c => { dr.getCell(c).style = ns; }); rn++; });
-        });
-        ws2.autoFilter = { from: "A4", to: `I${rn - 1}` }; ws2.views = [{ state: "frozen", ySplit: 4 }];
+        const ws2 = wb.addWorksheet("Detail Items"); ws2.getRow(4).height = 22;
+        ["No. Nota","Supplier","Kode","Nama","Sat","Qty","Harga","Disc%","Nilai"].forEach((h,i)=>{const cell=ws2.getRow(4).getCell(i+1);cell.value=h;cell.style={...hs,fill:{type:"pattern",pattern:"solid",fgColor:{argb:"FF3B82F6"}}};});
+        let rn=5; filteredData.value.forEach(row=>{const d=detailData.value[row.Nomor]||[];if(d.length===0){const dr=ws2.getRow(rn);dr.getCell(1).value=row.Nomor;dr.getCell(2).value=row.Supplier;dr.getCell(4).value="(Tidak ada detail)";rn++}else d.forEach((di,diIdx)=>{const dr=ws2.getRow(rn);dr.getCell(1).value=diIdx===0?row.Nomor:"";dr.getCell(2).value=diIdx===0?row.Supplier:"";dr.getCell(3).value=di.Kode||"";dr.getCell(4).value=di.Nama||"";dr.getCell(5).value=di.Satuan||"";dr.getCell(6).value=parseInt(di.Jumlah)||0;dr.getCell(7).value=parseFloat(di.Harga)||0;dr.getCell(8).value=parseInt(di.Disc)||0;dr.getCell(9).value=parseFloat(di.Nilai)||0;[6,7,9].forEach(c=>dr.getCell(c).style=ns);rn++})});
+        ws2.autoFilter={from:"A4",to:`I${rn-1}`};ws2.views=[{state:"frozen",ySplit:4}];
     }
-    const buf = await wb.xlsx.writeBuffer(); const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `Pembelian_${formatDate(new Date())}${exportWithDetail.value ? "_Lengkap" : ""}.xlsx`; a.click(); URL.revokeObjectURL(url);
-    toast.add({ severity: "success", summary: "Excel", detail: "Berhasil", life: 2000 });
+    const buf=await wb.xlsx.writeBuffer();const blob=new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`Pembelian_${formatDate(new Date())}${exportWithDetail.value?"_Lengkap":""}.xlsx`;a.click();URL.revokeObjectURL(url);
+    toast.add({severity:"success",summary:"Excel",detail:"Berhasil",life:2000});
 };
 
 const doExportCSV = () => {
-    let csv = "\uFEFF";
-    if (exportWithDetail.value) { csv += "Nomor,Tanggal,Supplier,Total,Retur,Bayar,Status,Kode,Nama,Satuan,Qty,Harga,Disc%,Nilai\n"; filteredData.value.forEach(r => { const d = detailData.value[r.Nomor] || []; if (d.length === 0) csv += `${r.Nomor},${r.Tanggal},${r.Supplier},${r.Total},${r.Retur},${r.Bayar},${r.Status_Bayar},,,,,,\n`; else d.forEach(di => csv += `${r.Nomor},${r.Tanggal},${r.Supplier},${r.Total},${r.Retur},${r.Bayar},${r.Status_Bayar},${di.Kode},"${di.Nama}",${di.Satuan},${di.Jumlah},${di.Harga},${di.Disc},${di.Nilai}\n`); }); }
-    else { csv += filterColumns.map(c => `"${c.header}"`).join(",") + "\n"; filteredData.value.forEach(r => csv += filterColumns.map(c => `"${String(r[c.field] || "").replace(/"/g, '""')}"`).join(",") + "\n"); }
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `Pembelian_${formatDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url);
-    toast.add({ severity: "success", summary: "CSV", detail: "Berhasil", life: 2000 });
+    let csv="\uFEFF";
+    if(exportWithDetail.value){csv+="Nomor,Tanggal,Supplier,Total,Retur,Bayar,Status,Kode,Nama,Satuan,Qty,Harga,Disc%,Nilai\n";filteredData.value.forEach(r=>{const d=detailData.value[r.Nomor]||[];if(d.length===0)csv+=`${r.Nomor},${r.Tanggal},${r.Supplier},${r.Total},${r.Retur},${r.Bayar},${r.Status_Bayar},,,,,,\n`;else d.forEach(di=>csv+=`${r.Nomor},${r.Tanggal},${r.Supplier},${r.Total},${r.Retur},${r.Bayar},${r.Status_Bayar},${di.Kode},"${di.Nama}",${di.Satuan},${di.Jumlah},${di.Harga},${di.Disc},${di.Nilai}\n`)})}
+    else{csv+=filterColumns.map(c=>`"${c.header}"`).join(",")+"\n";filteredData.value.forEach(r=>csv+=filterColumns.map(c=>`"${String(r[c.field]||"").replace(/"/g,'""')}"`).join(",")+"\n")}
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`Pembelian_${formatDate(new Date())}.csv`;a.click();URL.revokeObjectURL(url);
+    toast.add({severity:"success",summary:"CSV",detail:"Berhasil",life:2000});
 };
 
 const doExportPDF = () => {
-    const period = `${startDate.value.toLocaleDateString("id-ID")} - ${endDate.value.toLocaleDateString("id-ID")}`;
-    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial;padding:12px;font-size:8px}h1{font-size:13px;text-align:center;color:#059669}table{width:100%;border-collapse:collapse}th{background:#10b981;color:#fff;padding:3px;border:1px solid #059669;font-size:6px}td{padding:2px 3px;border:1px solid #e5e7eb;font-size:7px}.r{text-align:right}.status-s{color:#059669}.status-b{color:#d97706}</style></head><body><h1>Pembelian By Nota</h1><p style="text-align:center;color:#6b7280">${period}</p>`;
-    if (exportWithDetail.value) {
-        filteredData.value.forEach(r => { const d = detailData.value[r.Nomor] || []; html += `<table><tr><td><strong>${r.Nomor}</strong></td><td>${r.Tanggal}</td><td>${r.Supplier}</td><td class="r">${formatCurrency(r.Total)}</td><td class="${r.Status_Bayar === 'Sudah' ? 'status-s' : 'status-b'}">${r.Status_Bayar}</td></tr></table>`; if (d.length > 0) { html += `<table><tr><th>Kode</th><th>Nama</th><th>Sat</th><th>Qty</th><th class="r">Harga</th><th>Disc%</th><th class="r">Nilai</th></tr>`; d.forEach(di => html += `<tr><td>${di.Kode}</td><td>${di.Nama}</td><td>${di.Satuan}</td><td>${di.Jumlah}</td><td class="r">${formatCurrency(di.Harga)}</td><td>${di.Disc}</td><td class="r">${formatCurrency(di.Nilai)}</td></tr>`); html += `</table>`; } html += `<br>`; });
-    } else { html += `<table><thead><tr>${filterColumns.map(c => `<th>${c.header}</th>`).join("")}</tr></thead><tbody>`; filteredData.value.forEach(r => html += `<tr>${filterColumns.map(c => `<td class="${c.align === 'right' ? 'r' : ''}">${c.type === 'currency' ? formatCurrency(r[c.field]) : r[c.field] || ''}</td>`).join("")}</tr>`); html += `</tbody></table>`; }
-    html += `</body></html>`;
-    const win = window.open("", "_blank", "width=1100,height=700"); if (win) { win.document.write(html); win.document.close(); }
-    toast.add({ severity: "success", summary: "Print", detail: "Gunakan Print > Save as PDF", life: 3000 });
+    const period=`${startDate.value.toLocaleDateString("id-ID")} - ${endDate.value.toLocaleDateString("id-ID")}`;
+    let html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial;padding:12px;font-size:8px}h1{font-size:13px;text-align:center;color:#059669}table{width:100%;border-collapse:collapse}th{background:#10b981;color:#fff;padding:3px;border:1px solid #059669;font-size:6px}td{padding:2px 3px;border:1px solid #e5e7eb;font-size:7px}.r{text-align:right}</style></head><body><h1>Pembelian By Nota</h1><p style="text-align:center;color:#6b7280">${period}</p>`;
+    if(exportWithDetail.value){filteredData.value.forEach(r=>{const d=detailData.value[r.Nomor]||[];html+=`<table><tr><td><strong>${r.Nomor}</strong></td><td>${r.Tanggal}</td><td>${r.Supplier}</td><td class="r">${formatCurrency(r.Total)}</td></tr></table>`;if(d.length>0){html+=`<table><tr><th>Kode</th><th>Nama</th><th>Sat</th><th>Qty</th><th class="r">Harga</th><th>Disc%</th><th class="r">Nilai</th></tr>`;d.forEach(di=>html+=`<tr><td>${di.Kode}</td><td>${di.Nama}</td><td>${di.Satuan}</td><td>${di.Jumlah}</td><td class="r">${formatCurrency(di.Harga)}</td><td>${di.Disc}</td><td class="r">${formatCurrency(di.Nilai)}</td></tr>`);html+=`</table>`}html+=`<br>`})}
+    else{html+=`<table><thead><tr>${filterColumns.map(c=>`<th>${c.header}</th>`).join("")}</tr></thead><tbody>`;filteredData.value.forEach(r=>html+=`<tr>${filterColumns.map(c=>`<td class="${c.align==='right'?'r':''}">${c.type==='currency'?formatCurrency(r[c.field]):r[c.field]||''}</td>`).join("")}</tr>`);html+=`</tbody></table>`}
+    html+=`</body></html>`;
+    const win=window.open("","_blank","width=1100,height=700");if(win){win.document.write(html);win.document.close();}
+    toast.add({severity:"success",summary:"Print",detail:"Gunakan Print > Save as PDF",life:3000});
 };
 
 onMounted(() => { resetTextFilters(); loadData(); });

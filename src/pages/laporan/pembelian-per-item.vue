@@ -40,12 +40,8 @@
 
             <!-- Tab Buttons -->
             <div class="tab-buttons">
-                <button :class="{ active: activeTab === 'grid' }" @click="activeTab = 'grid'">
-                    <i class="pi pi-table"></i> Grid
-                </button>
-                <button :class="{ active: activeTab === 'pivot' }" @click="activeTab = 'pivot'">
-                    <i class="pi pi-chart-bar"></i> Pivot
-                </button>
+                <button :class="{ active: activeTab === 'grid' }" @click="activeTab = 'grid'"><i class="pi pi-table"></i> Grid</button>
+                <button :class="{ active: activeTab === 'pivot' }" @click="activeTab = 'pivot'"><i class="pi pi-chart-bar"></i> Pivot</button>
             </div>
 
             <!-- GRID VIEW -->
@@ -66,12 +62,22 @@
                             <div class="col-header">
                                 <span class="col-title">{{ col.header }}</span>
                                 <div class="col-icons">
-                                    <button class="col-filter-btn" :class="{ 'active': hasColumnFilter(col.field) }" @click.stop="openColumnFilter(col, $event)">
+                                    <button class="col-filter-btn" :class="{ 'active': hasColumnFilter(col.field) || numericFilters[col.field] }" @click.stop="openColumnFilter(col, $event)">
                                         <i class="pi pi-filter"></i>
                                     </button>
                                 </div>
                                 <OverlayPanel :ref="(el) => setFilterOverlayRef(col.field, el)" @hide="onFilterPanelHide(col.field)">
-                                    <div class="mini-filter">
+                                    <!-- NUMERIC FILTER: Qty, Nilai, DAN Tanggal -->
+                                    <NumericFilter 
+                                        v-if="isNumericField(col) || col.field === 'Tanggal'"
+                                        :label="col.header"
+                                        :currentFilter="numericFilters[col.field]"
+                                        :isDate="col.field === 'Tanggal'"
+                                        @apply="(f: any) => applyNumericFilter(col.field, f)"
+                                        @close="closeFilterPanel(col.field)"
+                                    />
+                                    <!-- MULTI-SELECT untuk text -->
+                                    <div v-else class="mini-filter">
                                         <div class="mini-filter-head"><span>Filter {{ col.header }}</span><Button icon="pi pi-times" text rounded size="small" @click="closeFilterPanel(col.field)" /></div>
                                         <div class="mini-filter-search"><i class="pi pi-search"></i><input v-model="filterSearchTerms[col.field]" placeholder="Cari..." class="mini-filter-input" /></div>
                                         <div class="mini-filter-actions"><button @click="selectAll(col.field)">Pilih Semua</button><button @click="clearFilter(col.field)">Bersihkan</button></div>
@@ -96,42 +102,15 @@
             <!-- PIVOT VIEW -->
             <div v-show="activeTab === 'pivot'" class="table-area">
                 <div class="pivot-controls">
-                    <div class="filter-item">
-                        <span class="filter-label">Baris</span>
-                        <Select v-model="pivotRow" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" />
-                    </div>
-                    <div class="filter-item">
-                        <span class="filter-label">Kolom</span>
-                        <Select v-model="pivotCol" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" />
-                    </div>
-                    <div class="filter-item">
-                        <span class="filter-label">Data</span>
-                        <Select v-model="pivotData" :options="pivotDataFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" />
-                    </div>
+                    <div class="filter-item"><span class="filter-label">Baris</span><Select v-model="pivotRow" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" /></div>
+                    <div class="filter-item"><span class="filter-label">Kolom</span><Select v-model="pivotCol" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" /></div>
+                    <div class="filter-item"><span class="filter-label">Data</span><Select v-model="pivotData" :options="pivotDataFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" /></div>
                 </div>
                 <div class="pivot-table-wrapper">
                     <table class="pivot-table" v-if="pivotResult.rows.length > 0">
-                        <thead>
-                            <tr>
-                                <th class="pivot-corner">{{ pivotRowLabel }}</th>
-                                <th v-for="col in pivotResult.columns" :key="col" class="pivot-col-header">{{ col }}</th>
-                                <th class="pivot-total-header">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="row in pivotResult.rows" :key="row.label">
-                                <td class="pivot-row-header">{{ row.label }}</td>
-                                <td v-for="col in pivotResult.columns" :key="col" class="pivot-cell">{{ formatPivotValue(row.values[col]) }}</td>
-                                <td class="pivot-total-cell">{{ formatPivotValue(row.total) }}</td>
-                            </tr>
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td class="pivot-total-header">Total</td>
-                                <td v-for="col in pivotResult.columns" :key="col" class="pivot-total-cell">{{ formatPivotValue(pivotResult.columnTotals[col]) }}</td>
-                                <td class="pivot-grand-total">{{ formatPivotValue(pivotResult.grandTotal) }}</td>
-                            </tr>
-                        </tfoot>
+                        <thead><tr><th class="pivot-corner">{{ pivotRowLabel }}</th><th v-for="col in pivotResult.columns" :key="col" class="pivot-col-header">{{ col }}</th><th class="pivot-total-header">Total</th></tr></thead>
+                        <tbody><tr v-for="row in pivotResult.rows" :key="row.label"><td class="pivot-row-header">{{ row.label }}</td><td v-for="col in pivotResult.columns" :key="col" class="pivot-cell">{{ formatPivotValue(row.values[col]) }}</td><td class="pivot-total-cell">{{ formatPivotValue(row.total) }}</td></tr></tbody>
+                        <tfoot><tr><td class="pivot-total-header">Total</td><td v-for="col in pivotResult.columns" :key="col" class="pivot-total-cell">{{ formatPivotValue(pivotResult.columnTotals[col]) }}</td><td class="pivot-grand-total">{{ formatPivotValue(pivotResult.grandTotal) }}</td></tr></tfoot>
                     </table>
                 </div>
             </div>
@@ -164,6 +143,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useToast } from "primevue/usetoast";
 import OverlayPanel from "primevue/overlaypanel";
+import NumericFilter from "~/components/report/NumericFilter.vue";
 
 definePageMeta({ layout: "default" });
 
@@ -184,6 +164,7 @@ const tempColumnFilters = ref<Record<string, any[]>>({});
 const activeColumnFilters = ref<Record<string, any[]>>({});
 const filterSearchTerms = ref<Record<string, string>>({});
 const filterOptionsCache = ref<Record<string, any[]>>({});
+const numericFilters = ref<Record<string, any>>({});
 
 const gridColumns = [
     { field: "Bulan", header: "Bln", width: "55px", minWidth: "50px", align: "center" },
@@ -199,15 +180,15 @@ const gridColumns = [
     { field: "Nilai", header: "Nilai", width: "130px", minWidth: "110px", align: "right" },
 ];
 
+const isNumericField = (col: any) => col.field === "Qty" || col.field === "Nilai" || col.field === "Tanggal";
+
 const filterableColumns = [
     { field: "Nota", header: "Nota" }, { field: "Supplier", header: "Supplier" },
     { field: "Kode", header: "Kode" }, { field: "Nama", header: "Nama" },
     { field: "Kategori", header: "Kategori" }, { field: "Bulan", header: "Bulan" }, { field: "Tahun", header: "Tahun" },
 ];
 
-const pivotRow = ref("Supplier");
-const pivotCol = ref("Bulan");
-const pivotData = ref("Nilai");
+const pivotRow = ref("Supplier"); const pivotCol = ref("Bulan"); const pivotData = ref("Nilai");
 const pivotResult = ref<{ columns: string[]; rows: any[]; columnTotals: any; grandTotal: number }>({ columns: [], rows: [], columnTotals: {}, grandTotal: 0 });
 const pivotFields = [{ label: "Bulan", value: "Bulan" }, { label: "Tahun", value: "Tahun" }, { label: "Supplier", value: "Supplier" }, { label: "Kategori", value: "Kategori" }, { label: "Nama Barang", value: "Nama" }];
 const pivotDataFields = [{ label: "Qty", value: "Qty" }, { label: "Nilai", value: "Nilai" }];
@@ -220,14 +201,36 @@ const activeFiltersCount = computed(() => {
     let c = 0;
     Object.keys(activeColumnFilters.value).forEach(k => { if (activeColumnFilters.value[k]?.length > 0) c++; });
     Object.keys(activeTextFilters.value).forEach(k => { if (activeTextFilters.value[k]?.trim()) c++; });
+    Object.keys(numericFilters.value).forEach(k => { if (numericFilters.value[k]) c++; });
     return c;
 });
+
+const evaluateCondition = (row: any, field: string, operator: string, val1: any, val2: any, isDate: boolean): boolean => {
+    const rawVal = row[field];
+    if (isDate) {
+        const v = String(rawVal || ''); const v1 = String(val1 || ''); const v2 = String(val2 || '');
+        switch (operator) { case "eq": return v === v1; case "neq": return v !== v1; case "gt": return v > v1; case "gte": return v >= v1; case "lt": return v < v1; case "lte": return v <= v1; case "between": return v >= v1 && v <= v2; default: return true; }
+    } else {
+        const v = parseFloat(rawVal) || 0; const v1 = parseFloat(val1) || 0; const v2 = parseFloat(val2) || 0;
+        switch (operator) { case "eq": return v === v1; case "neq": return v !== v1; case "gt": return v > v1; case "gte": return v >= v1; case "lt": return v < v1; case "lte": return v <= v1; case "between": return v >= v1 && v <= v2; default: return true; }
+    }
+};
 
 const filteredData = computed(() => {
     let r = [...data.value];
     if (searchKeyword.value) { const kw = searchKeyword.value.toLowerCase(); r = r.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(kw))); }
     Object.keys(activeColumnFilters.value).forEach(f => { const v = activeColumnFilters.value[f]; if (v?.length > 0) r = r.filter(row => v.includes(String(row[f]))); });
     Object.keys(activeTextFilters.value).forEach(f => { const v = activeTextFilters.value[f]?.toLowerCase(); if (v) r = r.filter(row => String(row[f] || "").toLowerCase().includes(v)); });
+    Object.keys(numericFilters.value).forEach(field => {
+        const filter = numericFilters.value[field]; if (!filter) return;
+        const isDate = filter.type === 'date';
+        r = r.filter(row => {
+            const cond1 = evaluateCondition(row, field, filter.operator1, filter.value1, filter.value1b, isDate);
+            if (!filter.operator2 || (filter.value2 === null || filter.value2 === undefined || filter.value2 === '')) return cond1;
+            const cond2 = evaluateCondition(row, field, filter.operator2, filter.value2, filter.value2b, isDate);
+            return filter.logic === 'or' ? (cond1 || cond2) : (cond1 && cond2);
+        });
+    });
     return r;
 });
 
@@ -247,11 +250,10 @@ const loadData = async () => {
 
 const resetTextFilters = () => { filterableColumns.forEach(c => textFilters.value[c.field] = ""); activeTextFilters.value = {}; };
 const applyTextFilters = () => { activeTextFilters.value = {}; filterableColumns.forEach(c => { if (textFilters.value[c.field]?.trim()) activeTextFilters.value[c.field] = textFilters.value[c.field].trim(); }); showTextFilter.value = false; };
-const clearAllFilters = () => { searchKeyword.value = ""; activeColumnFilters.value = {}; activeTextFilters.value = {}; textFilters.value = {}; tempColumnFilters.value = {}; };
 
-const buildFilterOptions = () => { filterableColumns.forEach(col => { const m = new Map<string, number>(); data.value.forEach(r => { const v = String(r[col.field] || ""); if (v) m.set(v, (m.get(v) || 0) + 1); }); filterOptionsCache.value[col.field] = Array.from(m.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label)); }); };
+const buildFilterOptions = () => { gridColumns.forEach(col => { if (isNumericField(col) || col.field === 'Tanggal') return; const m = new Map<string, number>(); data.value.forEach(r => { const v = String(r[col.field] || ""); if (v) m.set(v, (m.get(v) || 0) + 1); }); filterOptionsCache.value[col.field] = Array.from(m.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label)); }); };
 const setFilterOverlayRef = (f: string, el: any) => { if (el) filterOverlays.value[f] = el; };
-const openColumnFilter = (col: any, e: Event) => { const o = filterOverlays.value[col.field]; if (o) { if (!tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]; o.toggle(e); } };
+const openColumnFilter = (col: any, e: Event) => { const o = filterOverlays.value[col.field]; if (o) { const isNumOrDate = isNumericField(col) || col.field === 'Tanggal'; if (!isNumOrDate && !tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]; o.toggle(e); } };
 const closeFilterPanel = (f: string) => filterOverlays.value[f]?.hide();
 const onFilterPanelHide = (f: string) => { tempColumnFilters.value[f] = [...(activeColumnFilters.value[f] || [])]; };
 const getFilteredOptions = (f: string) => { const o = filterOptionsCache.value[f] || [], t = filterSearchTerms.value[f]?.toLowerCase() || ""; return t ? o.filter(opt => opt.label.toLowerCase().includes(t)) : o; };
@@ -259,66 +261,27 @@ const selectAll = (f: string) => { tempColumnFilters.value[f] = (filterOptionsCa
 const clearFilter = (f: string) => { tempColumnFilters.value[f] = []; };
 const hasColumnFilter = (f: string) => activeColumnFilters.value[f]?.length > 0;
 const applyColumnFilter = (f: string) => { activeColumnFilters.value[f] = [...(tempColumnFilters.value[f] || [])]; closeFilterPanel(f); };
+const applyNumericFilter = (field: string, filter: any) => { if (filter) numericFilters.value[field] = filter; else delete numericFilters.value[field]; closeFilterPanel(field); };
 
-const buildPivot = () => {
-    const rows: Record<string, any> = {}; const colSet = new Set<string>(); let gt = 0;
-    filteredData.value.forEach(item => {
-        const rv = String(item[pivotRow.value] || ""), cv = String(item[pivotCol.value] || ""), dv = parseFloat(item[pivotData.value]) || 0;
-        colSet.add(cv); if (!rows[rv]) rows[rv] = { label: rv, values: {}, total: 0 }; rows[rv].values[cv] = (rows[rv].values[cv] || 0) + dv; rows[rv].total += dv; gt += dv;
-    });
-    const cols = Array.from(colSet).sort((a, b) => { const na = parseInt(a), nb = parseInt(b); return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb; });
-    const colTotals: Record<string, number> = {}; cols.forEach(c => { colTotals[c] = Object.values(rows).reduce((s: number, r: any) => s + (r.values[c] || 0), 0); });
-    pivotResult.value = { columns: cols, rows: Object.values(rows), columnTotals: colTotals, grandTotal: gt };
-};
+const buildPivot = () => { const rows: Record<string, any> = {}; const colSet = new Set<string>(); let gt = 0; filteredData.value.forEach(item => { const rv = String(item[pivotRow.value] || ""), cv = String(item[pivotCol.value] || ""), dv = parseFloat(item[pivotData.value]) || 0; colSet.add(cv); if (!rows[rv]) rows[rv] = { label: rv, values: {}, total: 0 }; rows[rv].values[cv] = (rows[rv].values[cv] || 0) + dv; rows[rv].total += dv; gt += dv; }); const cols = Array.from(colSet).sort((a, b) => { const na = parseInt(a), nb = parseInt(b); return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb; }); const colTotals: Record<string, number> = {}; cols.forEach(c => { colTotals[c] = Object.values(rows).reduce((s: number, r: any) => s + (r.values[c] || 0), 0); }); pivotResult.value = { columns: cols, rows: Object.values(rows), columnTotals: colTotals, grandTotal: gt }; };
 
 const exportDialog = ref(false); const exportTarget = ref<"grid" | "pivot">("grid"); const exportType = ref<"excel" | "pdf" | "csv">("excel");
 const exportExcel = () => { exportType.value = "excel"; exportDialog.value = true; };
 const exportPDF = () => { exportType.value = "pdf"; exportDialog.value = true; };
 const exportCSV = () => { exportType.value = "csv"; exportDialog.value = true; };
-
 const proceedExport = () => { exportDialog.value = false; if (exportType.value === "excel") doExportExcel(); else if (exportType.value === "pdf") doExportPDF(); else doExportCSV(); };
 
 const doExportExcel = async () => {
     const ExcelJS = await import("exceljs"); const wb = new ExcelJS.Workbook();
     const hs: any = { font: { bold: true, color: { argb: "FFFFFFFF" }, size: 10 }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF10B981" } }, alignment: { horizontal: "center", vertical: "middle" } };
     const ds: any = { font: { size: 9 } }, ns: any = { ...ds, alignment: { horizontal: "right" }, numFmt: "#,##0" };
-    if (exportTarget.value === "grid") {
-        const ws = wb.addWorksheet("Pembelian Per Item");
-        ws.mergeCells("A1:K1"); ws.getCell("A1").value = "LAPORAN PEMBELIAN PER ITEM"; ws.getCell("A1").style = { font: { bold: true, size: 14 } };
-        ws.getRow(1).height = 28; ws.getRow(4).height = 22;
-        gridColumns.forEach((c, i) => { const cell = ws.getRow(4).getCell(i + 1); cell.value = c.header; cell.style = hs; });
-        filteredData.value.forEach((r, i) => { const dr = ws.getRow(5 + i); gridColumns.forEach((c, ci) => { const cell = dr.getCell(ci + 1); const isNum = c.field === "Nilai" || c.field === "Qty"; cell.value = isNum ? (parseFloat(r[c.field]) || 0) : String(r[c.field] ?? ""); cell.style = isNum ? ns : ds; }); });
-        ws.autoFilter = { from: "A4", to: `K${4 + filteredData.value.length}` }; ws.views = [{ state: "frozen", ySplit: 4 }];
-    } else {
-        const ws = wb.addWorksheet("Pivot");
-        ws.getCell("A1").value = `PIVOT: ${pivotRowLabel.value} x ${pivotCol.value} (${pivotData.value})`; ws.getCell("A1").style = { font: { bold: true, size: 14 } };
-        ws.getRow(3).getCell(1).value = pivotRowLabel.value; ws.getRow(3).getCell(1).style = hs;
-        pivotResult.value.columns.forEach((c, i) => { const cell = ws.getRow(3).getCell(i + 2); cell.value = String(c); cell.style = hs; });
-        ws.getRow(3).getCell(pivotResult.value.columns.length + 2).value = "Total"; ws.getRow(3).getCell(pivotResult.value.columns.length + 2).style = hs;
-        pivotResult.value.rows.forEach((r, i) => { const dr = ws.getRow(4 + i); dr.getCell(1).value = r.label; dr.getCell(1).style = { ...ds, font: { bold: true } }; pivotResult.value.columns.forEach((c, ci) => { const cell = dr.getCell(ci + 2); cell.value = r.values[c] || 0; cell.style = ns; }); dr.getCell(pivotResult.value.columns.length + 2).value = r.total; dr.getCell(pivotResult.value.columns.length + 2).style = { ...ns, font: { bold: true } }; });
-    }
-    const buf = await wb.xlsx.writeBuffer(); const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `Pembelian_Per_Item_${formatDate(new Date())}.xlsx`; a.click(); URL.revokeObjectURL(url);
+    if (exportTarget.value === "grid") { const ws = wb.addWorksheet("Pembelian Per Item"); ws.getRow(4).height = 22; gridColumns.forEach((c, i) => { const cell = ws.getRow(4).getCell(i + 1); cell.value = c.header; cell.style = hs; }); filteredData.value.forEach((r, i) => { const dr = ws.getRow(5 + i); gridColumns.forEach((c, ci) => { const cell = dr.getCell(ci + 1); const isNum = c.field === "Nilai" || c.field === "Qty"; cell.value = isNum ? (parseFloat(r[c.field]) || 0) : String(r[c.field] ?? ""); cell.style = isNum ? ns : ds; }); }); ws.autoFilter = { from: "A4", to: `K${4 + filteredData.value.length}` }; ws.views = [{ state: "frozen", ySplit: 4 }]; }
+    else { const ws = wb.addWorksheet("Pivot"); ws.getRow(3).getCell(1).value = pivotRowLabel.value; ws.getRow(3).getCell(1).style = hs; pivotResult.value.columns.forEach((c, i) => { const cell = ws.getRow(3).getCell(i + 2); cell.value = String(c); cell.style = hs; }); ws.getRow(3).getCell(pivotResult.value.columns.length + 2).value = "Total"; ws.getRow(3).getCell(pivotResult.value.columns.length + 2).style = hs; pivotResult.value.rows.forEach((r, i) => { const dr = ws.getRow(4 + i); dr.getCell(1).value = r.label; dr.getCell(1).style = { ...ds, font: { bold: true } }; pivotResult.value.columns.forEach((c, ci) => { dr.getCell(ci + 2).value = r.values[c] || 0; dr.getCell(ci + 2).style = ns; }); dr.getCell(pivotResult.value.columns.length + 2).value = r.total; dr.getCell(pivotResult.value.columns.length + 2).style = { ...ns, font: { bold: true } }; }); }
+    const buf = await wb.xlsx.writeBuffer(); const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `Pembelian_Per_Item_${formatDate(new Date())}.xlsx`; a.click(); URL.revokeObjectURL(url);
     toast.add({ severity: "success", summary: "Excel", detail: "Berhasil", life: 2000 });
 };
-
-const doExportCSV = () => {
-    let csv = "\uFEFF";
-    if (exportTarget.value === "grid") { csv += gridColumns.map(c => `"${c.header}"`).join(",") + "\n"; filteredData.value.forEach(r => csv += gridColumns.map(c => `"${String(r[c.field] || "").replace(/"/g, '""')}"`).join(",") + "\n"); }
-    else { csv += `"${pivotRowLabel}","${pivotResult.value.columns.join('","')}","Total"\n`; pivotResult.value.rows.forEach(r => csv += `"${r.label}","${pivotResult.value.columns.map((c: string) => r.values[c] || 0).join('","')}","${r.total}"\n`); }
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `Pembelian_Per_Item_${formatDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url);
-    toast.add({ severity: "success", summary: "CSV", detail: "Berhasil", life: 2000 });
-};
-
-const doExportPDF = () => {
-    const period = `${startDate.value.toLocaleDateString("id-ID")} - ${endDate.value.toLocaleDateString("id-ID")}`;
-    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial;padding:12px;font-size:8px}h1{font-size:13px;text-align:center;color:#059669}table{width:100%;border-collapse:collapse}th{background:#10b981;color:#fff;padding:3px;border:1px solid #059669;font-size:6px}td{padding:2px 3px;border:1px solid #e5e7eb;font-size:7px}.r{text-align:right}</style></head><body><h1>Pembelian Per Item</h1><p style="text-align:center;color:#6b7280">${period}</p>`;
-    if (exportTarget.value === "grid") { html += `<table><thead><tr>${gridColumns.map(c => `<th>${c.header}</th>`).join("")}</tr></thead><tbody>`; filteredData.value.forEach(r => html += `<tr>${gridColumns.map(c => `<td class="${c.align === 'right' ? 'r' : ''}">${c.field === 'Nilai' ? formatCurrency(r[c.field]) : c.field === 'Qty' ? formatNumber(r[c.field]) : r[c.field] || ''}</td>`).join("")}</tr>`); html += `</tbody></table>`; }
-    else { html += `<table><thead><tr><th>${pivotRowLabel}</th>${pivotResult.value.columns.map(c => `<th>${c}</th>`).join("")}<th>Total</th></tr></thead><tbody>`; pivotResult.value.rows.forEach(r => html += `<tr><td><strong>${r.label}</strong></td>${pivotResult.value.columns.map(c => `<td class="r">${formatPivotValue(r.values[c])}</td>`).join("")}<td class="r"><strong>${formatPivotValue(r.total)}</strong></td></tr>`); html += `</tbody></table>`; }
-    html += `</body></html>`;
-    const win = window.open("", "_blank", "width=1000,height=700"); if (win) { win.document.write(html); win.document.close(); }
-    toast.add({ severity: "success", summary: "Print", detail: "Gunakan Print > Save as PDF", life: 3000 });
-};
+const doExportCSV = () => { let csv = "\uFEFF"; if (exportTarget.value === "grid") { csv += gridColumns.map(c => `"${c.header}"`).join(",") + "\n"; filteredData.value.forEach(r => csv += gridColumns.map(c => `"${String(r[c.field] || "").replace(/"/g, '""')}"`).join(",") + "\n"); } else { csv += `"${pivotRowLabel}","${pivotResult.value.columns.join('","')}","Total"\n`; pivotResult.value.rows.forEach(r => csv += `"${r.label}","${pivotResult.value.columns.map((c: string) => r.values[c] || 0).join('","')}","${r.total}"\n`); } const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `Pembelian_Per_Item_${formatDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url); toast.add({ severity: "success", summary: "CSV", detail: "Berhasil", life: 2000 }); };
+const doExportPDF = () => { const period = `${startDate.value.toLocaleDateString("id-ID")} - ${endDate.value.toLocaleDateString("id-ID")}`; let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial;padding:12px;font-size:8px}h1{font-size:13px;text-align:center;color:#059669}table{width:100%;border-collapse:collapse}th{background:#10b981;color:#fff;padding:3px;border:1px solid #059669;font-size:6px}td{padding:2px 3px;border:1px solid #e5e7eb;font-size:7px}.r{text-align:right}</style></head><body><h1>Pembelian Per Item</h1><p style="text-align:center;color:#6b7280">${period}</p>`; if (exportTarget.value === "grid") { html += `<table><thead><tr>${gridColumns.map(c => `<th>${c.header}</th>`).join("")}</tr></thead><tbody>`; filteredData.value.forEach(r => html += `<tr>${gridColumns.map(c => `<td class="${c.align === 'right' ? 'r' : ''}">${c.field === 'Nilai' ? formatCurrency(r[c.field]) : c.field === 'Qty' ? formatNumber(r[c.field]) : r[c.field] || ''}</td>`).join("")}</tr>`); html += `</tbody></table>`; } else { html += `<table><thead><tr><th>${pivotRowLabel}</th>${pivotResult.value.columns.map(c => `<th>${c}</th>`).join("")}<th>Total</th></tr></thead><tbody>`; pivotResult.value.rows.forEach(r => html += `<tr><td><strong>${r.label}</strong></td>${pivotResult.value.columns.map(c => `<td class="r">${formatPivotValue(r.values[c])}</td>`).join("")}<td class="r"><strong>${formatPivotValue(r.total)}</strong></td></tr>`); html += `</tbody></table>`; } html += `</body></html>`; const win = window.open("", "_blank", "width=1000,height=700"); if (win) { win.document.write(html); win.document.close(); } toast.add({ severity: "success", summary: "Print", detail: "Gunakan Print > Save as PDF", life: 3000 }); };
 
 onMounted(() => { resetTextFilters(); loadData(); });
 </script>
@@ -326,49 +289,29 @@ onMounted(() => { resetTextFilters(); loadData(); });
 <style lang="scss" scoped>
 .report-page { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .main-card { flex: 1; display: flex; flex-direction: column; background: var(--surface-card); border-radius: 0.5rem; border: 1px solid var(--surface-border); overflow: hidden; min-height: 0; }
-
 .toolbar { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-50); flex-shrink: 0; flex-wrap: wrap; }
 .search-box { display: flex; align-items: center; background: var(--surface-0); border: 1px solid var(--surface-border); border-radius: 0.35rem; padding: 0 0.35rem; height: 1.85rem; width: 200px; flex-shrink: 0; i { font-size: 0.7rem; color: var(--text-color-secondary); } .clear-btn { cursor: pointer; margin-left: auto; } .search-input { flex: 1; border: none; background: transparent; padding: 0 0.3rem; font-size: 0.75rem; outline: none; color: var(--text-color); &::placeholder { color: var(--text-color-secondary); } } }
 .filter-item { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; .filter-label { font-size: 0.68rem; font-weight: 600; color: var(--text-color-secondary); white-space: nowrap; } .date-sep { font-size: 0.68rem; color: var(--text-color-secondary); } :deep(.p-datepicker) { width: 125px; .p-datepicker-input { font-size: 0.73rem; height: 1.85rem; padding: 0 0.35rem; } } }
 .filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; }
 .actions { display: flex; gap: 0.1rem; margin-left: auto; flex-shrink: 0; align-items: center; :deep(.p-button) { width: 1.65rem !important; height: 1.65rem !important; } }
-
 .text-filter-panel { padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-0); display: flex; align-items: flex-end; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; .text-filter-grid { display: flex; gap: 0.35rem; flex-wrap: wrap; flex: 1; } .text-filter-input { height: 1.75rem; padding: 0 0.4rem; border: 1px solid var(--surface-border); border-radius: 0.3rem; font-size: 0.72rem; outline: none; width: 140px; } .text-filter-actions { display: flex; gap: 0.25rem; flex-shrink: 0; } }
-
 .tab-buttons { display: flex; border-bottom: 2px solid var(--surface-border); flex-shrink: 0; button { padding: 0.45rem 1.25rem; border: none; background: transparent; font-size: 0.78rem; font-weight: 500; color: var(--text-color-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; i { margin-right: 0.4rem; font-size: 0.8rem; } &:hover { color: var(--primary-600); } &.active { color: var(--primary-600); border-bottom-color: var(--primary-500); font-weight: 600; } } }
-
 .table-area { flex: 1; overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
-
-.data-table { flex: 1; display: flex; flex-direction: column; min-height: 0;
-    :deep(.p-datatable-wrapper) { flex: 1; overflow: auto; min-height: 0; }
-    :deep(.p-datatable-thead > tr > th) { background: var(--surface-50); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-color-secondary); padding: 0.35rem 0.45rem !important; border-bottom: 2px solid var(--surface-border); white-space: nowrap; letter-spacing: 0.03em; position: sticky; top: 0; z-index: 2; }
-    :deep(.p-datatable-tbody > tr > td) { padding: 0.25rem 0.45rem; font-size: 0.75rem; white-space: nowrap; }
-    :deep(.p-datatable-tbody > tr:hover) { background: var(--surface-50); }
-    :deep(.p-datatable-tfoot > tr > td) { padding: 0.35rem 0.45rem; font-size: 0.72rem; font-weight: 700; background: var(--surface-100); border-top: 2px solid var(--primary-300); color: var(--primary-700); white-space: nowrap; position: sticky; bottom: 0; z-index: 2; }
-    :deep(.p-paginator) { padding: 0.25rem 0.4rem; font-size: 0.7rem; border-top: 1px solid var(--surface-border); flex-shrink: 0; background: var(--surface-card); .p-paginator-page, .p-paginator-first, .p-paginator-prev, .p-paginator-next, .p-paginator-last { min-width: 1.5rem; height: 1.5rem; font-size: 0.7rem; } }
-    :deep(.p-sortable-column-icon) { font-size: 0.6rem !important; width: 1.25rem; height: 1.25rem; display: inline-flex; align-items: center; justify-content: center; }
-}
-
+.data-table { flex: 1; display: flex; flex-direction: column; min-height: 0; :deep(.p-datatable-wrapper) { flex: 1; overflow: auto; min-height: 0; } :deep(.p-datatable-thead > tr > th) { background: var(--surface-50); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-color-secondary); padding: 0.35rem 0.45rem !important; border-bottom: 2px solid var(--surface-border); white-space: nowrap; letter-spacing: 0.03em; position: sticky; top: 0; z-index: 2; } :deep(.p-datatable-tbody > tr > td) { padding: 0.25rem 0.45rem; font-size: 0.75rem; white-space: nowrap; } :deep(.p-datatable-tbody > tr:hover) { background: var(--surface-50); } :deep(.p-datatable-tfoot > tr > td) { padding: 0.35rem 0.45rem; font-size: 0.72rem; font-weight: 700; background: var(--surface-100); border-top: 2px solid var(--primary-300); color: var(--primary-700); white-space: nowrap; position: sticky; bottom: 0; z-index: 2; } :deep(.p-paginator) { padding: 0.25rem 0.4rem; font-size: 0.7rem; border-top: 1px solid var(--surface-border); flex-shrink: 0; background: var(--surface-card); .p-paginator-page, .p-paginator-first, .p-paginator-prev, .p-paginator-next, .p-paginator-last { min-width: 1.5rem; height: 1.5rem; font-size: 0.7rem; } } :deep(.p-sortable-column-icon) { font-size: 0.6rem !important; width: 1.25rem; height: 1.25rem; display: inline-flex; align-items: center; justify-content: center; } }
 .col-header { display: flex; align-items: center; width: 100%; .col-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .col-icons { display: flex; align-items: center; gap: 0.15rem; flex-shrink: 0; margin-left: auto; } }
 .col-filter-btn { width: 1.25rem; height: 1.25rem; border-radius: 0.2rem; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.12s; flex-shrink: 0; color: var(--text-color-secondary); i { font-size: 0.6rem; } &:hover { background: var(--surface-200); } &.active { opacity: 1; background: var(--primary-100); color: var(--primary-700); } }
 .col-header:hover .col-filter-btn { opacity: 1; }
-
 .text-currency { font-weight: 600; color: var(--primary-600); }
 .text-number { font-weight: 500; }
 .footer-label { font-weight: 700; color: var(--primary-700); }
 .footer-value { font-weight: 700; color: var(--primary-700); }
-
 .mini-filter { width: 230px; display: flex; flex-direction: column; .mini-filter-head { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--surface-border); font-weight: 600; font-size: 0.76rem; } .mini-filter-search { position: relative; padding: 0.35rem 0.65rem; border-bottom: 1px solid var(--surface-border); i { position: absolute; left: 1.05rem; top: 50%; transform: translateY(-50%); font-size: 0.65rem; } .mini-filter-input { width: 100%; height: 1.55rem; padding: 0 0.35rem 0 1.5rem; border: 1px solid var(--surface-border); border-radius: 0.25rem; font-size: 0.7rem; outline: none; } } .mini-filter-actions { display: flex; justify-content: space-between; padding: 0.25rem 0.65rem; border-bottom: 1px solid var(--surface-border); button { background: none; border: none; font-size: 0.65rem; color: var(--primary-600); cursor: pointer; font-weight: 500; } } .mini-filter-list { max-height: 160px; overflow-y: auto; padding: 0.15rem 0; } .mini-filter-opt { display: flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; cursor: pointer; font-size: 0.7rem; &:hover { background: var(--surface-50); } input[type="checkbox"] { width: 0.75rem; height: 0.75rem; accent-color: var(--primary-500); } span { flex: 1; } small { color: var(--text-color-secondary); font-size: 0.62rem; } } .mini-filter-empty { padding: 1.25rem; text-align: center; color: var(--text-color-secondary); font-size: 0.7rem; } .mini-filter-foot { padding: 0.35rem 0.65rem; border-top: 1px solid var(--surface-border); } }
-
 .pivot-select { width: 130px; :deep(.p-select) { height: 1.85rem; .p-select-label { font-size: 0.73rem; } } }
 .pivot-controls { display: flex; gap: 0.5rem; padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-0); flex-shrink: 0; flex-wrap: wrap; }
 .pivot-table-wrapper { flex: 1; overflow: auto; min-height: 0; padding: 0.5rem; }
 .pivot-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; th, td { padding: 0.35rem 0.5rem; border: 1px solid var(--surface-border); text-align: right; } .pivot-corner, .pivot-row-header { text-align: left; font-weight: 600; background: var(--surface-50); } .pivot-col-header { background: var(--primary-50); color: var(--primary-700); font-weight: 600; } .pivot-total-header, .pivot-total-cell { font-weight: 700; background: var(--surface-100); } .pivot-grand-total { font-weight: 700; background: var(--primary-100); color: var(--primary-700); } }
-
 .export-option-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 2px solid var(--surface-border); border-radius: 0.625rem; cursor: pointer; transition: all 0.15s; + .export-option-card { margin-top: 0.5rem; } .export-option-icon { width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--surface-100); i { font-size: 1.2rem; } } .export-option-info { flex: 1; strong { display: block; font-size: 0.85rem; } small { font-size: 0.7rem; color: var(--text-color-secondary); } } .check-icon { font-size: 1.2rem; color: var(--primary-500); opacity: 0; } &:hover { border-color: var(--primary-300); background: var(--primary-50); } &.active { border-color: var(--primary-500); background: var(--primary-50); .check-icon { opacity: 1; } } }
-
 .table-empty { display: flex; flex-direction: column; align-items: center; padding: 2.5rem; color: var(--text-color-secondary); gap: 0.5rem; i { font-size: 2rem; } span { font-size: 0.8rem; } }
-
 @media (max-width: 900px) { .toolbar { gap: 0.35rem; padding: 0.35rem 0.5rem; } }
 @media (max-width: 640px) { .search-box { width: 100%; } .filter-item { flex-wrap: wrap; .filter-label { width: 100%; } } .text-filter-input { width: 100%; } }
 @media (max-width: 768px) { .data-table { :deep(.p-datatable-thead > tr > th) { font-size: 0.63rem; padding: 0.25rem 0.35rem !important; } :deep(.p-datatable-tbody > tr > td) { font-size: 0.7rem; padding: 0.2rem 0.35rem; } } }
