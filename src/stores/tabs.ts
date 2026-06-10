@@ -9,13 +9,15 @@ export interface TabItem {
     icon?: string
     closable: boolean
     timestamp: number
+    instanceKey: number  // 🔥 Key unik untuk force re-mount
 }
 
 export const useTabsStore = defineStore('tabs', {
     state: () => ({
         tabs: [] as TabItem[],
         activeTabId: '' as string,
-        isReady: false  // ✅ Flag untuk menandakan tabs siap
+        isReady: false,
+        tabInstanceCounter: 0  // 🔥 Counter global
     }),
 
     getters: {
@@ -24,33 +26,31 @@ export const useTabsStore = defineStore('tabs', {
 
     actions: {
         generateTabId(path: string, query?: Record<string, any>): string {
-            // Untuk form edit, ID harus unik per ID
-            if (query?.id) {
-                return `${path}?id=${query.id}`
-            }
-            // Untuk form tambah (tanpa ID), selalu sama
+            if (query?.id) return `${path}?id=${query.id}`
             return path
         },
 
-        openTab(tab: Omit<TabItem, 'id' | 'timestamp'>) {
+        openTab(tab: Omit<TabItem, 'id' | 'timestamp' | 'instanceKey'>) {
             const id = this.generateTabId(tab.path, tab.query)
             const existingTab = this.tabs.find(t => t.id === id)
 
             if (existingTab) {
-                // Tab sudah ada, tinggal aktifkan
+                // Tab sudah ada, jangan ubah instanceKey
                 this.activeTabId = existingTab.id
             } else {
-                // Tab baru
+                // 🔥 Tab baru: kasih instanceKey unik
+                this.tabInstanceCounter++
                 const newTab: TabItem = {
                     ...tab,
                     id,
                     timestamp: Date.now(),
+                    instanceKey: this.tabInstanceCounter,
                     closable: tab.closable ?? true
                 }
                 this.tabs.push(newTab)
                 this.activeTabId = newTab.id
 
-                // Batasi jumlah tab (max 10)
+                // Batasi max 10 tab
                 if (this.tabs.length > 10) {
                     const closableTabs = this.tabs.filter(t => t.closable)
                     if (closableTabs.length > 0) {
@@ -59,8 +59,6 @@ export const useTabsStore = defineStore('tabs', {
                     }
                 }
             }
-
-            console.log('📂 Tabs:', this.tabs.map(t => ({ id: t.id, title: t.title, active: t.id === this.activeTabId })))
         },
 
         closeTab(tabId: string) {
@@ -94,7 +92,6 @@ export const useTabsStore = defineStore('tabs', {
         closeOtherTabs(tabId: string) {
             const activeTab = this.tabs.find(t => t.id === tabId)
             if (!activeTab) return
-
             this.tabs = this.tabs.filter(t => !t.closable || t.id === tabId)
             this.activeTabId = tabId
         },
@@ -107,8 +104,8 @@ export const useTabsStore = defineStore('tabs', {
         },
 
         initDefaultTabs() {
-            console.log('📂 Initializing default tabs...')
             this.tabs = []
+            this.tabInstanceCounter = 0
             this.openTab({
                 title: 'Dashboard',
                 path: '/dashboard',
@@ -116,13 +113,13 @@ export const useTabsStore = defineStore('tabs', {
                 closable: false
             })
             this.isReady = true
-            console.log('✅ Tabs initialized:', this.tabs.length)
         },
 
         resetTabs() {
             this.tabs = []
             this.activeTabId = ''
             this.isReady = false
+            this.tabInstanceCounter = 0
         }
     }
 })

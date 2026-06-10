@@ -32,13 +32,16 @@ export default defineNuxtRouteMiddleware((to) => {
         icon = 'pi pi-shopping-cart'
     } else if (to.path.includes('/laporan/penjualan')) {
         title = 'Laporan Penjualan'
-        icon = 'pi pi-shopping-cart'    
+        icon = 'pi pi-shopping-cart'
     } else if (to.path.includes('/laporan/penjualan-per-item')) {
         title = 'Laporan Penjualan Per Item'
         icon = 'pi pi-chart-bar'
     } else if (to.path.includes('/laporan/kartu-stock')) {
         title = 'Laporan Kartu Stock'
         icon = 'pi pi-chart-line'
+    } else if (to.path.includes('/laporan/member')) {
+        title = 'Member'
+        icon = 'pi pi-users'
     }
 
     tabsStore.openTab({

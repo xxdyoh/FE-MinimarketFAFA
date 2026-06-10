@@ -844,7 +844,11 @@ onMounted(async () => {
 .master-browse {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
+    
+    @media (max-width: 640px) {
+        gap: 0.5rem;
+    }
 }
 
 // Header
@@ -852,40 +856,94 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1.25rem 1.5rem;
+    padding: 1rem 1.25rem;
     background: var(--surface-card);
     border-radius: 0.75rem;
     border: 1px solid var(--surface-border);
+    gap: 1rem;
+    flex-wrap: wrap;
 
     .header-left {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 0.75rem;
+        flex: 1;
+        min-width: 0;
     }
 
     .header-icon {
-        width: 2.75rem;
-        height: 2.75rem;
+        width: 2.5rem;
+        height: 2.5rem;
         background: var(--primary-50);
         border-radius: 0.625rem;
         display: flex;
         align-items: center;
         justify-content: center;
         color: var(--primary-600);
-        font-size: 1.25rem;
+        font-size: 1.15rem;
+        flex-shrink: 0;
+    }
+
+    .header-text {
+        min-width: 0;
     }
 
     .header-title {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
         font-weight: 700;
         color: var(--text-color);
-        margin: 0 0 0.25rem 0;
+        margin: 0 0 0.15rem 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .header-subtitle {
-        font-size: 0.813rem;
+        font-size: 0.75rem;
         color: var(--text-color-secondary);
         margin: 0;
+        display: block;
+    }
+
+    .header-actions {
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 640px) {
+        padding: 0.875rem 1rem;
+        flex-direction: column;
+        align-items: stretch;
+        
+        .header-left {
+            gap: 0.625rem;
+        }
+        
+        .header-icon {
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 0.5rem;
+            
+            i {
+                font-size: 1rem;
+            }
+        }
+        
+        .header-title {
+            font-size: 1rem;
+        }
+        
+        .header-subtitle {
+            font-size: 0.7rem;
+        }
+        
+        .header-actions {
+            width: 100%;
+            
+            button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
     }
 }
 
@@ -895,6 +953,10 @@ onMounted(async () => {
     border-radius: 0.75rem;
     border: 1px solid var(--surface-border);
     overflow: hidden;
+    
+    @media (max-width: 640px) {
+        border-radius: 0.5rem;
+    }
 }
 
 // Toolbar
@@ -902,61 +964,89 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1rem;
+    padding: 0.625rem 0.875rem;
     border-bottom: 1px solid var(--surface-border);
     background: var(--surface-50);
+    gap: 0.5rem;
+    flex-wrap: wrap;
 
     .toolbar-left {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 0.5rem;
         flex-wrap: wrap;
+        flex: 1;
+        min-width: 0;
     }
 
     .search-input {
-        width: 280px;
+        width: 240px;
         background: var(--surface-0);
     }
 
     .bulk-info {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.25rem 0.75rem;
+        gap: 0.375rem;
+        padding: 0.2rem 0.625rem;
         background: var(--primary-50);
         border-radius: 1rem;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: var(--primary-700);
+        white-space: nowrap;
     }
 
     .active-filters {
         display: flex;
         align-items: center;
-        gap: 0.375rem;
-        padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+        gap: 0.3rem;
+        padding: 0.2rem 0.5rem 0.2rem 0.625rem;
         background: var(--surface-200);
         border-radius: 1rem;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: var(--text-color-secondary);
+        white-space: nowrap;
 
-        i {
-            font-size: 0.75rem;
-            color: var(--primary-600);
+        i { 
+            font-size: 0.7rem; 
+            color: var(--primary-600); 
         }
         
         &.text-filters-active {
             background: var(--blue-100);
-            
-            i {
-                color: var(--blue-600);
-            }
+            i { color: var(--blue-600); }
         }
     }
 
     .toolbar-right {
         display: flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: 0.15rem;
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 640px) {
+        padding: 0.5rem 0.625rem;
+        flex-direction: column;
+        align-items: stretch;
+        
+        .search-input {
+            width: 100%;
+        }
+        
+        .toolbar-left {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .toolbar-right {
+            justify-content: flex-end;
+        }
+        
+        .active-filters,
+        .bulk-info {
+            align-self: flex-start;
+        }
     }
 }
 
@@ -964,22 +1054,36 @@ onMounted(async () => {
 .browse-table {
     :deep(.p-datatable-thead > tr > th) {
         background: var(--surface-50);
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.025em;
         color: var(--text-color-secondary);
-        padding: 0.625rem 0.75rem;
+        padding: 0.5rem 0.625rem !important;
         border-bottom: 1px solid var(--surface-border);
+        white-space: nowrap;
     }
 
     :deep(.p-datatable-tbody > tr > td) {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.813rem;
+        padding: 0.4rem 0.625rem;
+        font-size: 0.78rem;
     }
 
     :deep(.p-datatable-tbody > tr:hover) {
         background: var(--surface-50);
+    }
+    
+    // Mobile: responsive table
+    @media (max-width: 768px) {
+        :deep(.p-datatable-wrapper) {
+            overflow-x: auto;
+        }
+        
+        :deep(.p-datatable-thead > tr > th),
+        :deep(.p-datatable-tbody > tr > td) {
+            padding: 0.35rem 0.5rem !important;
+            font-size: 0.72rem;
+        }
     }
 }
 
@@ -987,73 +1091,102 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: 0.25rem;
+    width: 100%;
 
     .column-title {
         flex: 1;
+        font-size: 0.7rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .filter-active {
         background: var(--primary-100) !important;
         color: var(--primary-700) !important;
     }
+    
+    :deep(.p-button) {
+        width: 1.5rem !important;
+        height: 1.5rem !important;
+        flex-shrink: 0;
+        
+        .pi {
+            font-size: 0.7rem !important;
+        }
+    }
 }
 
 .currency-text {
     font-weight: 600;
     color: var(--primary-600);
+    white-space: nowrap;
 }
 
 .number-text {
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .action-buttons {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.125rem;
+    gap: 0.1rem;
+    
+    :deep(.p-button) {
+        width: 1.75rem !important;
+        height: 1.75rem !important;
+    }
 }
 
+// Empty & Loading
 .empty-state,
 .loading-state {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 3rem;
+    padding: 2.5rem 1rem;
     color: var(--text-color-secondary);
+    text-align: center;
 
     i {
-        font-size: 2.5rem;
-        margin-bottom: 0.75rem;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
     }
 
     p {
-        margin: 0 0 1rem 0;
-        font-size: 0.875rem;
+        margin: 0 0 0.75rem 0;
+        font-size: 0.8rem;
     }
 }
 
-// Filter Panel
+// Filter Panel - lebih kecil di mobile
 .filter-panel {
     width: 280px;
-    max-height: 450px;
+    max-height: 400px;
     display: flex;
     flex-direction: column;
 
+    @media (max-width: 480px) {
+        width: 260px;
+        max-height: 350px;
+    }
+    
     .filter-panel-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.75rem 1rem;
+        padding: 0.6rem 0.875rem;
         border-bottom: 1px solid var(--surface-border);
         font-weight: 600;
-        font-size: 0.875rem;
+        font-size: 0.8rem;
     }
 
     .filter-panel-search {
-        padding: 0.75rem 1rem;
+        padding: 0.6rem 0.875rem;
         border-bottom: 1px solid var(--surface-border);
     }
 
@@ -1061,26 +1194,26 @@ onMounted(async () => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.5rem 1rem;
+        padding: 0.4rem 0.875rem;
         border-bottom: 1px solid var(--surface-border);
     }
 
     .filter-panel-list {
         flex: 1;
         overflow-y: auto;
-        max-height: 250px;
-        padding: 0.5rem 0;
+        max-height: 200px;
+        padding: 0.375rem 0;
 
         .filter-option {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
+            gap: 0.4rem;
+            padding: 0.4rem 0.875rem;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.15s;
 
-            &:hover {
-                background: var(--surface-50);
+            &:hover { 
+                background: var(--surface-50); 
             }
 
             .filter-label {
@@ -1088,46 +1221,123 @@ onMounted(async () => {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                font-size: 0.813rem;
+                font-size: 0.75rem;
                 cursor: pointer;
                 margin: 0;
 
                 .option-count {
                     color: var(--text-color-secondary);
-                    font-size: 0.75rem;
+                    font-size: 0.7rem;
                 }
             }
         }
 
-        .filter-empty {
-            padding: 2rem 1rem;
+        .filter-empty,
+        .filter-loading {
+            padding: 1.5rem 1rem;
             text-align: center;
             color: var(--text-color-secondary);
-            font-size: 0.813rem;
-        }
-        
-        .filter-loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            color: var(--text-color-secondary);
-            
-            i {
-                font-size: 1.5rem;
-                margin-bottom: 0.5rem;
-            }
-            
-            span {
-                font-size: 0.813rem;
-            }
+            font-size: 0.75rem;
         }
     }
 
     .filter-panel-footer {
-        padding: 0.75rem 1rem;
+        padding: 0.6rem 0.875rem;
         border-top: 1px solid var(--surface-border);
+    }
+}
+
+// Paginator - responsive
+.browse-paginator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.875rem;
+    border-top: 1px solid var(--surface-border);
+    background: var(--surface-50);
+    gap: 0.75rem;
+
+    .paginator-left {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .perpage-select {
+        width: 65px;
+    }
+
+    .paginator-info {
+        font-size: 0.7rem;
+        color: var(--text-color-secondary);
+        white-space: nowrap;
+    }
+
+    .custom-paginator {
+        :deep(.p-paginator) {
+            background: transparent;
+            border: none;
+            padding: 0;
+            gap: 0;
+        }
+
+        :deep(.p-paginator-page),
+        :deep(.p-paginator-first),
+        :deep(.p-paginator-prev),
+        :deep(.p-paginator-next),
+        :deep(.p-paginator-last) {
+            min-width: 1.75rem;
+            height: 1.75rem;
+            font-size: 0.7rem;
+        }
+        
+        :deep(.p-paginator-pages) {
+            gap: 0;
+        }
+    }
+
+    .total-info {
+        font-size: 0.7rem;
+        color: var(--text-color-secondary);
+        white-space: nowrap;
+    }
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: stretch;
+
+        .paginator-left,
+        .paginator-right {
+            justify-content: center;
+        }
+        
+        .paginator-center {
+            order: -1;
+            display: flex;
+            justify-content: center;
+        }
+    }
+}
+
+// Delete Dialog
+.delete-dialog {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0.5rem 0;
+
+    i {
+        font-size: 2rem;
+        color: var(--yellow-500);
+        margin-bottom: 0.75rem;
+    }
+
+    p {
+        margin: 0;
+        color: var(--text-color-secondary);
+        font-size: 0.8rem;
     }
 }
 
@@ -1139,12 +1349,12 @@ onMounted(async () => {
 }
 
 .text-filter-content {
-    padding: 1.5rem;
+    padding: 1.25rem;
     
     .text-filter-desc {
-        font-size: 0.813rem;
+        font-size: 0.75rem;
         color: var(--text-color-secondary);
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.25rem;
         padding-bottom: 1rem;
         border-bottom: 1px solid var(--surface-border);
     }
@@ -1153,23 +1363,23 @@ onMounted(async () => {
 .text-filter-grid {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1rem;
     
     .text-filter-item {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 0.375rem;
         
         label {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 0.813rem;
+            gap: 0.4rem;
+            font-size: 0.75rem;
             font-weight: 600;
             color: var(--text-color);
             
             .text-filter-icon {
-                font-size: 0.875rem;
+                font-size: 0.8rem;
                 color: var(--primary-500);
             }
         }
@@ -1180,13 +1390,13 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.5rem;
+    padding: 0.875rem 1.25rem;
     border-top: 1px solid var(--surface-border);
 }
 
 // Row Expansion
 .expansion-content {
-    padding: 1.25rem 1.5rem;
+    padding: 0.875rem 1rem;
     background: var(--surface-50);
     border-top: 1px solid var(--surface-border);
     border-bottom: 1px solid var(--surface-border);
@@ -1195,24 +1405,30 @@ onMounted(async () => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 1rem;
-        padding-bottom: 0.75rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
         border-bottom: 1px dashed var(--surface-border);
+        gap: 0.5rem;
         
         .expansion-header-left {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.5rem;
+            min-width: 0;
             
             i {
-                font-size: 1.25rem;
+                font-size: 1rem;
                 color: var(--primary-500);
+                flex-shrink: 0;
             }
             
             .expansion-title {
-                font-size: 0.938rem;
+                font-size: 0.8rem;
                 font-weight: 600;
                 color: var(--text-color);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
         }
     }
@@ -1221,14 +1437,15 @@ onMounted(async () => {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0.75rem;
-        padding: 2rem;
+        gap: 0.5rem;
+        padding: 1.5rem;
         color: var(--text-color-secondary);
+        font-size: 0.8rem;
     }
     
     .expansion-table {
         background: var(--surface-card);
-        border-radius: 0.5rem;
+        border-radius: 0.375rem;
         overflow: hidden;
         border: 1px solid var(--surface-border);
     }
@@ -1237,78 +1454,14 @@ onMounted(async () => {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
-        padding: 2rem;
+        gap: 0.4rem;
+        padding: 1.5rem;
         color: var(--text-color-secondary);
-    }
-}
-
-// Paginator
-.browse-paginator {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
-    border-top: 1px solid var(--surface-border);
-    background: var(--surface-50);
-
-    .paginator-left {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .perpage-select {
-        width: 70px;
-    }
-
-    .paginator-info {
         font-size: 0.75rem;
-        color: var(--text-color-secondary);
     }
-
-    .custom-paginator {
-        :deep(.p-paginator) {
-            background: transparent;
-            border: none;
-            padding: 0;
-        }
-
-        :deep(.p-paginator-page),
-        :deep(.p-paginator-first),
-        :deep(.p-paginator-prev),
-        :deep(.p-paginator-next),
-        :deep(.p-paginator-last) {
-            min-width: 2rem;
-            height: 2rem;
-            font-size: 0.75rem;
-        }
-    }
-
-    .total-info {
-        font-size: 0.75rem;
-        color: var(--text-color-secondary);
-    }
-}
-
-// Delete Dialog
-.delete-dialog {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 1rem 0;
-
-    i {
-        font-size: 2.5rem;
-        color: var(--yellow-500);
-        margin-bottom: 1rem;
-    }
-
-    p {
-        margin: 0;
-        color: var(--text-color-secondary);
-        font-size: 0.875rem;
+    
+    @media (max-width: 640px) {
+        padding: 0.625rem 0.75rem;
     }
 }
 
@@ -1345,52 +1498,6 @@ onMounted(async () => {
     
     .expansion-content {
         background: var(--surface-800);
-    }
-}
-
-// Responsive
-@media (max-width: 768px) {
-    .browse-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-
-        .header-actions {
-            width: 100%;
-            
-            button {
-                width: 100%;
-            }
-        }
-    }
-
-    .browse-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.75rem;
-
-        .search-input {
-            width: 100%;
-        }
-
-        .toolbar-right {
-            justify-content: flex-end;
-        }
-    }
-
-    .browse-paginator {
-        flex-direction: column;
-        gap: 0.75rem;
-
-        .paginator-left,
-        .paginator-right {
-            width: 100%;
-            justify-content: center;
-        }
-    }
-
-    .filter-panel {
-        width: 260px;
     }
 }
 </style>

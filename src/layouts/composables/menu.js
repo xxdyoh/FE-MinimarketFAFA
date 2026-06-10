@@ -45,6 +45,11 @@ const model = ref([
                 to: '/laporan/persediaan'
             },
             {
+                label: 'Member',
+                icon: 'pi pi-users',
+                to: '/laporan/member'
+            },
+            {
                 label: 'Lap Pembelian by Nota',
                 icon: 'pi pi-shopping-cart',
                 to: '/laporan/pembelian'

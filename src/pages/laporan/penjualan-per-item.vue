@@ -1,141 +1,113 @@
 <template>
     <div class="report-page">
-        <!-- Header -->
-        <!-- <div class="report-header">
-            <div class="header-left">
-                <div class="header-icon"><i class="pi pi-list"></i></div>
-                <div class="header-text">
-                    <h1>Laporan Penjualan Per Item</h1>
-                    <p>Detail penjualan per barang dengan pivot analysis</p>
-                </div>
-            </div>
-            <div class="header-actions">
-                <Button label="Export Excel" icon="pi pi-file-excel" severity="success" size="small" @click="exportExcel" />
-                <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="exportPDF" />
-                <Button label="Export CSV" icon="pi pi-file" severity="info" size="small" @click="exportCSV" />
-            </div>
-        </div> -->
-
-        <div class="report-card">
+        <div class="main-card">
             <!-- Toolbar -->
-            <div class="browse-toolbar">
-                <div class="toolbar-left">
-                    <IconField iconPosition="left">
-                        <InputIcon class="pi pi-search" />
-                        <InputText v-model="searchKeyword" placeholder="Cari semua kolom..." size="small" class="search-input" />
-                    </IconField>
-                    <div v-if="activeFiltersCount > 0" class="active-filters">
-                        <i class="pi pi-filter-fill"></i>
-                        <span>{{ activeFiltersCount }} filter aktif</span>
-                        <Button icon="pi pi-times" text rounded size="small" severity="secondary" @click="clearAllFilters" />
-                    </div>
+            <div class="toolbar">
+                <div class="search-box">
+                    <i class="pi pi-search"></i>
+                    <input v-model="searchKeyword" placeholder="Cari nota, customer..." class="search-input" />
+                    <i v-if="searchKeyword" class="pi pi-times clear-btn" @click="searchKeyword = ''"></i>
                 </div>
-                <div class="toolbar-right">
-                <Button label="Export Excel" icon="pi pi-file-excel" severity="success" size="small" @click="exportExcel" />
-                <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="exportPDF" />
-                <Button label="Export CSV" icon="pi pi-file" severity="info" size="small" @click="exportCSV" />
-                    <Button icon="pi pi-refresh" severity="secondary" text size="small" :loading="loading" @click="loadData" />
-                    <Button icon="pi pi-filter" severity="secondary" text size="small" :class="{ 'filter-active': showTextFilter }" @click="showTextFilter = !showTextFilter" />
+
+                <div class="filter-item">
+                    <span class="filter-label">Periode</span>
+                    <DatePicker v-model="startDate" dateFormat="yy-mm-dd" showIcon size="small" />
+                    <span class="date-sep">s/d</span>
+                    <DatePicker v-model="endDate" dateFormat="yy-mm-dd" showIcon size="small" />
+                </div>
+
+                <Button icon="pi pi-filter" severity="secondary" text rounded size="small" :class="{ 'filter-active': showTextFilter || activeFiltersCount > 0 }" @click="showTextFilter = !showTextFilter" v-tooltip.top="'Filter Teks'" />
+
+                <div class="actions">
+                    <Button icon="pi pi-refresh" text rounded size="small" :loading="loading" @click="loadData" v-tooltip.top="'Refresh'" />
+                    <Button icon="pi pi-file-excel" text rounded size="small" severity="success" @click="exportExcel" v-tooltip.top="'Excel'" />
+                    <Button icon="pi pi-print" text rounded size="small" @click="exportPDF" v-tooltip.top="'Print'" />
                 </div>
             </div>
 
-            <!-- Text Filter -->
+            <!-- Text Filter Panel -->
             <div v-if="showTextFilter" class="text-filter-panel">
                 <div class="text-filter-grid">
                     <div v-for="col in filterableColumns" :key="col.field" class="text-filter-item">
-                        <label>{{ col.header }}</label>
-                        <InputText v-model="textFilters[col.field]" placeholder="Filter..." size="small" class="w-full" />
+                        <input v-model="textFilters[col.field]" :placeholder="col.header" class="text-filter-input" @keydown.enter="applyTextFilters" />
                     </div>
                 </div>
-                <div class="text-filter-footer">
+                <div class="text-filter-actions">
                     <Button label="Reset" text size="small" @click="resetTextFilters" />
                     <Button label="Terapkan" severity="primary" size="small" @click="applyTextFilters" />
                 </div>
             </div>
 
-			<!-- Date Filter -->
-			<div class="date-filter-row">
-			  <div class="date-item">
-				<label>Tanggal Mulai</label>
-				<DatePicker v-model="startDate" dateFormat="yy-mm-dd" showIcon size="small" />
-			  </div>
-			  <div class="date-item">
-				<label>Tanggal Akhir</label>
-				<DatePicker v-model="endDate" dateFormat="yy-mm-dd" showIcon size="small" />
-			  </div>
-			</div>
-
-            <!-- Tab -->
+            <!-- Tab Buttons -->
             <div class="tab-buttons">
                 <button :class="{ active: activeTab === 'grid' }" @click="activeTab = 'grid'"><i class="pi pi-table"></i> Grid</button>
-                <button :class="{ active: activeTab === 'pivot' }" @click="activeTab = 'pivot'"><i class="pi pi-chart-bar"></i> Pivot Analysis</button>
+                <button :class="{ active: activeTab === 'pivot' }" @click="activeTab = 'pivot'"><i class="pi pi-chart-bar"></i> Pivot</button>
             </div>
 
-            <!-- GRID -->
-            <div v-show="activeTab === 'grid'">
-                <DataTable :value="filteredData" :loading="loading" class="report-table" stripedRows size="small" showGridlines
-                    paginator :rows="25" :rowsPerPageOptions="[10,25,50,100]" sortField="Tanggal" :sortOrder="-1" scrollable scrollDirection="horizontal" responsiveLayout="scroll">
-                    <template #empty><div class="empty-state"><i class="pi pi-inbox"></i><p>Data tidak tersedia</p></div></template>
+            <!-- GRID VIEW -->
+            <div v-show="activeTab === 'grid'" class="table-area">
+                <DataTable
+                    :value="filteredData" :loading="loading" stripedRows size="small" showGridlines
+                    paginator :rows="25" :rowsPerPageOptions="[10, 25, 50, 100]"
+                    sortField="Tanggal" :sortOrder="-1"
+                    scrollable scrollHeight="flex" scrollDirection="horizontal" responsiveLayout="scroll"
+                    class="data-table"
+                >
+                    <template #empty>
+                        <div class="table-empty"><i class="pi pi-inbox"></i><span>Tidak ada data</span></div>
+                    </template>
 
-                    <Column v-for="col in gridColumns" :key="col.field" :field="col.field" :sortable="true" :style="{ width: col.width || 'auto', textAlign: col.align || 'left' }">
+                    <Column v-for="col in gridColumns" :key="col.field" :field="col.field" :sortable="true" :style="{ width: col.width, minWidth: col.minWidth || '60px', textAlign: col.align || 'left' }">
                         <template #header>
-                            <div class="column-header">
-                                <span class="column-title">{{ col.header }}</span>
-                                <!-- 🔥 1 ICON FILTER UNTUK SEMUA KOLOM -->
-                                <Button 
-                                    icon="pi pi-filter" 
-                                    text rounded size="small"
-                                    :class="{ 'filter-active': hasColumnFilter(col.field) || numericFilters[col.field] }"
-                                    @click.stop="openColumnFilter(col, $event)"
-                                />
-                                
-                                <!-- 🔥 OverlayPanel: Multi-Select untuk TEXT, Numeric untuk NUMBER/CURRENCY -->
+                            <div class="col-header">
+                                <span class="col-title">{{ col.header }}</span>
+                                <div class="col-icons">
+                                    <button class="col-filter-btn" :class="{ 'active': hasColumnFilter(col.field) || numericFilters[col.field] }" @click.stop="openColumnFilter(col, $event)">
+                                        <i class="pi pi-filter"></i>
+                                    </button>
+                                </div>
                                 <OverlayPanel :ref="(el) => setFilterOverlayRef(col.field, el)" @hide="onFilterPanelHide(col.field)">
-                                    <!-- NUMERIC FILTER (untuk kolom number/currency) -->
-                                    <NumericFilter 
-                                        v-if="isNumericField(col)"
-                                        :label="col.header"
-                                        :currentFilter="numericFilters[col.field]"
-                                        @apply="(f: any) => applyNumericFilter(col.field, f)"
-                                        @close="closeFilterPanel(col.field)"
-                                    />
-                                    <!-- MULTI-SELECT FILTER (untuk kolom text) -->
-                                    <div v-else class="filter-panel">
-                                        <div class="filter-panel-header"><span>Filter {{ col.header }}</span><Button icon="pi pi-times" text rounded size="small" @click="closeFilterPanel(col.field)" /></div>
-                                        <div class="filter-panel-search"><IconField iconPosition="left"><InputIcon class="pi pi-search" /><InputText v-model="filterSearchTerms[col.field]" placeholder="Cari..." size="small" class="w-full" /></IconField></div>
-                                        <div class="filter-panel-actions"><Button label="Pilih Semua" text size="small" @click="selectAll(col.field)" /><Button label="Bersihkan" text size="small" @click="clearFilter(col.field)" /></div>
-                                        <div class="filter-panel-list">
-                                            <div v-for="opt in getFilteredOptions(col.field)" :key="opt.value" class="filter-option">
-                                                <Checkbox v-model="tempColumnFilters[col.field]" :value="opt.value" :inputId="`f-${col.field}-${opt.value}`" />
-                                                <label :for="`f-${col.field}-${opt.value}`" class="filter-label"><span>{{ opt.label }}</span><span class="option-count">({{ opt.count }})</span></label>
-                                            </div>
+                                    <NumericFilter v-if="isNumericField(col)" :label="col.header" :currentFilter="numericFilters[col.field]" @apply="(f: any) => applyNumericFilter(col.field, f)" @close="closeFilterPanel(col.field)" />
+                                    <div v-else class="mini-filter">
+                                        <div class="mini-filter-head"><span>Filter {{ col.header }}</span><Button icon="pi pi-times" text rounded size="small" @click="closeFilterPanel(col.field)" /></div>
+                                        <div class="mini-filter-search"><i class="pi pi-search"></i><input v-model="filterSearchTerms[col.field]" placeholder="Cari..." class="mini-filter-input" /></div>
+                                        <div class="mini-filter-actions"><button @click="selectAll(col.field)">Pilih Semua</button><button @click="clearFilter(col.field)">Bersihkan</button></div>
+                                        <div class="mini-filter-list">
+                                            <label v-for="opt in getFilteredOptions(col.field)" :key="opt.value" class="mini-filter-opt"><input type="checkbox" :value="opt.value" v-model="tempColumnFilters[col.field]" /><span>{{ opt.label }}</span><small>{{ opt.count }}</small></label>
+                                            <div v-if="getFilteredOptions(col.field).length === 0" class="mini-filter-empty">Tidak ada</div>
                                         </div>
-                                        <div class="filter-panel-footer"><Button label="Terapkan" severity="primary" size="small" class="w-full" @click="applyColumnFilter(col.field)" /></div>
+                                        <div class="mini-filter-foot"><Button label="Terapkan" severity="primary" size="small" class="w-full" @click="applyColumnFilter(col.field)" /></div>
                                     </div>
                                 </OverlayPanel>
                             </div>
                         </template>
-                        <template v-if="isCurrencyField(col.field)" #body="{ data }"><span class="currency-text">{{ formatCurrency(data[col.field]) }}</span></template>
-                        <template v-else-if="col.field === 'Qty'" #body="{ data }"><span class="number-text">{{ formatNumber(data[col.field]) }}</span></template>
+                        <template v-if="isCurrencyField(col.field)" #body="{ data }"><span class="text-currency">{{ formatCurrency(data[col.field]) }}</span></template>
+                        <template v-else-if="col.field === 'Qty'" #body="{ data }"><span class="text-number">{{ formatNumber(data[col.field]) }}</span></template>
+                        <!-- Footer TOTAL -->
+                        <template v-if="col.field === 'Nota'" #footer><span class="footer-label">TOTAL</span></template>
+                        <template v-else-if="col.field === 'Qty'" #footer><span class="footer-value">{{ formatNumber(totalQty) }}</span></template>
+                        <template v-else-if="col.field === 'Nilai'" #footer><span class="footer-value">{{ formatCurrency(totalNilai) }}</span></template>
+                        <template v-else-if="isAdmin && col.field === 'Hpp'" #footer><span class="footer-value">{{ formatCurrency(totalHpp) }}</span></template>
+                        <template v-else-if="isAdmin && col.field === 'Margin'" #footer><span class="footer-value">{{ formatCurrency(totalMargin) }}</span></template>
                     </Column>
-
-                    <template #footer>
-                        <div class="footer-summary-row">
-                            <span class="footer-value">Qty: {{ formatNumber(totalQty) }}</span>
-                            <span class="footer-value currency-text">Nilai: {{ formatCurrency(totalNilai) }}</span>
-                            <span v-if="isAdmin" class="footer-value currency-text">HPP: {{ formatCurrency(totalHpp) }}</span>
-                            <span v-if="isAdmin" class="footer-value currency-text">Margin: {{ formatCurrency(totalMargin) }}</span>
-                        </div>
-                    </template>
                 </DataTable>
             </div>
 
-            <!-- PIVOT -->
-            <div v-show="activeTab === 'pivot'" class="pivot-container">
+            <!-- PIVOT VIEW -->
+            <div v-show="activeTab === 'pivot'" class="table-area">
                 <div class="pivot-controls">
-                    <div class="pivot-control"><label>Baris</label><Select v-model="pivotRow" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="w-40" @change="buildPivot" /></div>
-                    <div class="pivot-control"><label>Kolom</label><Select v-model="pivotCol" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="w-40" @change="buildPivot" /></div>
-                    <div class="pivot-control"><label>Data</label><Select v-model="pivotData" :options="pivotDataFields" optionLabel="label" optionValue="value" size="small" class="w-40" @change="buildPivot" /></div>
+                    <div class="filter-item">
+                        <span class="filter-label">Baris</span>
+                        <Select v-model="pivotRow" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" />
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">Kolom</span>
+                        <Select v-model="pivotCol" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" />
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">Data</span>
+                        <Select v-model="pivotData" :options="pivotDataFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" />
+                    </div>
                 </div>
                 <div class="pivot-table-wrapper">
                     <table class="pivot-table" v-if="pivotResult.rows.length > 0">
@@ -148,20 +120,18 @@
         </div>
 
         <!-- Export Dialog -->
-        <Dialog v-model:visible="exportDialog" header="Export Laporan" :modal="true" :style="{ width: '420px' }">
+        <Dialog v-model:visible="exportDialog" header="Export Laporan" :modal="true" :style="{ width: '400px' }" :breakpoints="{ '480px': '90vw' }">
             <div class="export-dialog-content">
                 <p class="export-dialog-text">Pilih tampilan yang akan diexport:</p>
-                <div class="export-options">
-                    <div class="export-option" :class="{ 'active': exportTarget === 'grid' }" @click="exportTarget = 'grid'">
-                        <div class="option-radio"><div class="radio-circle" :class="{ 'checked': exportTarget === 'grid' }"></div></div>
-                        <div class="option-icon"><i class="pi pi-table"></i></div>
-                        <div class="option-text"><strong>Grid View</strong><small>Export data tabel</small></div>
-                    </div>
-                    <div class="export-option" :class="{ 'active': exportTarget === 'pivot' }" @click="exportTarget = 'pivot'">
-                        <div class="option-radio"><div class="radio-circle" :class="{ 'checked': exportTarget === 'pivot' }"></div></div>
-                        <div class="option-icon"><i class="pi pi-chart-bar"></i></div>
-                        <div class="option-text"><strong>Pivot Analysis</strong><small>Export hasil pivot</small></div>
-                    </div>
+                <div class="export-option-card" :class="{ 'active': exportTarget === 'grid' }" @click="exportTarget = 'grid'">
+                    <div class="export-option-icon"><i class="pi pi-table"></i></div>
+                    <div class="export-option-info"><strong>Grid View</strong><small>Export data tabel</small></div>
+                    <i class="pi pi-check-circle check-icon" v-if="exportTarget === 'grid'"></i>
+                </div>
+                <div class="export-option-card" :class="{ 'active': exportTarget === 'pivot' }" @click="exportTarget = 'pivot'">
+                    <div class="export-option-icon"><i class="pi pi-chart-bar"></i></div>
+                    <div class="export-option-info"><strong>Pivot</strong><small>Export hasil pivot</small></div>
+                    <i class="pi pi-check-circle check-icon" v-if="exportTarget === 'pivot'"></i>
                 </div>
             </div>
             <template #footer>
@@ -176,7 +146,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import OverlayPanel from 'primevue/overlaypanel'
-import Checkbox from 'primevue/checkbox'
 import { useAuthStore } from '~/stores/auth'
 import NumericFilter from '~/components/report/NumericFilter.vue'
 
@@ -215,21 +184,27 @@ const pivotResult = ref<{ columns: string[], rows: any[], columnTotals: any, gra
 const pivotFields = [{ label: 'Bulan', value: 'Bulan' },{ label: 'Tahun', value: 'Tahun' },{ label: 'Customer', value: 'Customer' },{ label: 'Kategori', value: 'Kategori' },{ label: 'Nama Barang', value: 'Nama' }]
 const pivotDataFields = computed(() => {
     const f: any[] = [{ label: 'Qty', value: 'Qty' },{ label: 'Nilai', value: 'Nilai' },{ label: 'Disc', value: 'Disc' }]
-    if (isAdmin.value) { f.push({ label: 'HPP', value: 'Hpp' },{ label: 'Margin', value: 'Margin' }) }
+    if (isAdmin.value) f.push({ label: 'HPP', value: 'Hpp' },{ label: 'Margin', value: 'Margin' })
     return f
 })
 const pivotRowLabel = computed(() => pivotFields.find(f => f.value === pivotRow.value)?.label || '')
 
 const gridColumns = computed(() => {
     const cols: any[] = [
-        { field: 'Nota', header: 'Nota', width: '140px' },{ field: 'Tanggal', header: 'Tanggal', width: '110px' },
-        { field: 'Bulan', header: 'Bln', width: '55px', align: 'center' },{ field: 'Tahun', header: 'Thn', width: '55px', align: 'center' },
-        { field: 'Customer', header: 'Customer', width: '180px' },{ field: 'Kode', header: 'Kode', width: '110px' },
-        { field: 'Nama', header: 'Nama Barang', width: '220px' },{ field: 'Satuan', header: 'Sat', width: '65px', align: 'center' },
-        { field: 'Kategori', header: 'Kategori', width: '110px' },{ field: 'Qty', header: 'Qty', width: '75px', align: 'right', type: 'number' },
-        { field: 'Nilai', header: 'Nilai', width: '140px', align: 'right', type: 'currency' },{ field: 'Disc', header: 'Disc', width: '110px', align: 'right', type: 'currency' },
+        { field: 'Nota', header: 'Nota', width: '130px', minWidth: '110px' },
+        { field: 'Tanggal', header: 'Tanggal', width: '100px', minWidth: '85px' },
+        { field: 'Bulan', header: 'Bln', width: '50px', minWidth: '45px', align: 'center' },
+        { field: 'Tahun', header: 'Thn', width: '50px', minWidth: '45px', align: 'center' },
+        { field: 'Customer', header: 'Customer', width: '170px', minWidth: '140px' },
+        { field: 'Kode', header: 'Kode', width: '100px', minWidth: '85px' },
+        { field: 'Nama', header: 'Nama Barang', width: '200px', minWidth: '160px' },
+        { field: 'Satuan', header: 'Sat', width: '55px', minWidth: '50px', align: 'center' },
+        { field: 'Kategori', header: 'Kategori', width: '100px', minWidth: '85px' },
+        { field: 'Qty', header: 'Qty', width: '70px', minWidth: '60px', align: 'right', type: 'number' },
+        { field: 'Nilai', header: 'Nilai', width: '130px', minWidth: '110px', align: 'right', type: 'currency' },
+        { field: 'Disc', header: 'Disc', width: '100px', minWidth: '85px', align: 'right', type: 'currency' },
     ]
-    if (isAdmin.value) { cols.push({ field: 'Hpp', header: 'HPP', width: '130px', align: 'right', type: 'currency' },{ field: 'Margin', header: 'Margin', width: '130px', align: 'right', type: 'currency' }) }
+    if (isAdmin.value) { cols.push({ field: 'Hpp', header: 'HPP', width: '120px', minWidth: '100px', align: 'right', type: 'currency' },{ field: 'Margin', header: 'Margin', width: '120px', minWidth: '100px', align: 'right', type: 'currency' }) }
     return cols
 })
 
@@ -239,9 +214,11 @@ const isNumericField = (col: any) => col.type === 'number' || col.type === 'curr
 const filterableColumns = [{ field: 'Nota', header: 'Nota' },{ field: 'Customer', header: 'Customer' },{ field: 'Kode', header: 'Kode' },{ field: 'Nama', header: 'Nama' },{ field: 'Kategori', header: 'Kategori' }]
 
 const activeFiltersCount = computed(() => {
-    return Object.keys(activeColumnFilters.value).filter(k => activeColumnFilters.value[k]?.length > 0).length +
-           Object.keys(activeTextFilters.value).filter(k => activeTextFilters.value[k]?.trim()).length +
-           Object.keys(numericFilters.value).length
+    let c = 0;
+    Object.keys(activeColumnFilters.value).forEach(k => { if (activeColumnFilters.value[k]?.length > 0) c++; });
+    Object.keys(activeTextFilters.value).forEach(k => { if (activeTextFilters.value[k]?.trim()) c++; });
+    Object.keys(numericFilters.value).forEach(k => { if (numericFilters.value[k]) c++; });
+    return c;
 })
 
 const filteredData = computed(() => {
@@ -250,22 +227,10 @@ const filteredData = computed(() => {
     Object.keys(activeColumnFilters.value).forEach(f => { const v = activeColumnFilters.value[f]; if (v?.length > 0) r = r.filter(row => v.includes(String(row[f]))) })
     Object.keys(activeTextFilters.value).forEach(f => { const v = activeTextFilters.value[f]?.toLowerCase(); if (v) r = r.filter(row => String(row[f]||'').toLowerCase().includes(v)) })
     Object.keys(numericFilters.value).forEach(field => {
-        const filter = numericFilters.value[field]
-        if (!filter) return
+        const filter = numericFilters.value[field]; if (!filter) return
         r = r.filter(row => {
-            const val = parseFloat(row[field]) || 0
-            const v1 = parseFloat(filter.value1) || 0
-            const v2 = parseFloat(filter.value2) || 0
-            switch (filter.operator) {
-                case 'eq': return val === v1
-                case 'neq': return val !== v1
-                case 'gt': return val > v1
-                case 'gte': return val >= v1
-                case 'lt': return val < v1
-                case 'lte': return val <= v1
-                case 'between': return val >= v1 && val <= v2
-                default: return true
-            }
+            const val = parseFloat(row[field]) || 0; const v1 = parseFloat(filter.value1) || 0; const v2 = parseFloat(filter.value2) || 0
+            switch (filter.operator) { case 'eq': return val === v1; case 'neq': return val !== v1; case 'gt': return val > v1; case 'gte': return val >= v1; case 'lt': return val < v1; case 'lte': return val <= v1; case 'between': return val >= v1 && val <= v2; default: return true; }
         })
     })
     return r
@@ -279,7 +244,7 @@ const totalMargin = computed(() => filteredData.value.reduce((s, r) => s + (pars
 const formatCurrency = (v: any) => { if (!v && v !== 0) return '-'; return 'Rp ' + Math.round(parseFloat(v)).toLocaleString('id-ID') }
 const formatNumber = (v: any) => { if (!v && v !== 0) return '-'; return Math.round(parseFloat(v)).toLocaleString('id-ID') }
 const formatPivotValue = (v: any) => pivotData.value === 'Nilai' || pivotData.value === 'Disc' || pivotData.value === 'Hpp' || pivotData.value === 'Margin' ? formatCurrency(v) : formatNumber(v)
-const formatDate = (d: Date): string => { const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}` }
+const formatDate = (d: Date): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
 const loadData = async () => {
     loading.value = true
@@ -302,22 +267,11 @@ const buildPivot = () => {
 }
 
 const resetTextFilters = () => { filterableColumns.forEach(c => textFilters.value[c.field] = ''); activeTextFilters.value = {} }
-const applyTextFilters = () => { activeTextFilters.value = {}; filterableColumns.forEach(c => { if (textFilters.value[c.field]?.trim()) activeTextFilters.value[c.field] = textFilters.value[c.field].trim() }) }
+const applyTextFilters = () => { activeTextFilters.value = {}; filterableColumns.forEach(c => { if (textFilters.value[c.field]?.trim()) activeTextFilters.value[c.field] = textFilters.value[c.field].trim() }); showTextFilter.value = false; }
 const clearAllFilters = () => { searchKeyword.value = ''; activeColumnFilters.value = {}; activeTextFilters.value = {}; textFilters.value = {}; tempColumnFilters.value = {}; numericFilters.value = {} }
-const buildFilterOptions = () => { filterableColumns.forEach(col => { const vals = new Map<string, number>(); data.value.forEach(r => { const v = String(r[col.field] || ''); if (v) vals.set(v, (vals.get(v) || 0) + 1) }); filterOptionsCache.value[col.field] = Array.from(vals.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label)) }) }
+const buildFilterOptions = () => { filterableColumns.forEach(col => { const m = new Map<string, number>(); data.value.forEach(r => { const v = String(r[col.field] || ''); if (v) m.set(v, (m.get(v) || 0) + 1) }); filterOptionsCache.value[col.field] = Array.from(m.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label)) }) }
 const setFilterOverlayRef = (f: string, el: any) => { if (el) filterOverlays.value[f] = el }
-
-// 🔥 BUKA FILTER (1 icon untuk semua)
-const openColumnFilter = (col: any, event: Event) => {
-    const overlay = filterOverlays.value[col.field]
-    if (overlay) {
-        if (!isNumericField(col)) {
-            if (!tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]
-        }
-        overlay.toggle(event)
-    }
-}
-
+const openColumnFilter = (col: any, e: Event) => { const o = filterOverlays.value[col.field]; if (o) { if (!isNumericField(col) && !tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]; o.toggle(e) } }
 const closeFilterPanel = (f: string) => filterOverlays.value[f]?.hide()
 const onFilterPanelHide = (f: string) => { tempColumnFilters.value[f] = [...(activeColumnFilters.value[f] || [])] }
 const getFilteredOptions = (f: string) => { const o = filterOptionsCache.value[f] || []; const t = filterSearchTerms.value[f]?.toLowerCase() || ''; return t ? o.filter(opt => opt.label.toLowerCase().includes(t)) : o }
@@ -325,180 +279,102 @@ const selectAll = (f: string) => { tempColumnFilters.value[f] = (filterOptionsCa
 const clearFilter = (f: string) => { tempColumnFilters.value[f] = [] }
 const hasColumnFilter = (f: string) => activeColumnFilters.value[f]?.length > 0
 const applyColumnFilter = (f: string) => { activeColumnFilters.value[f] = [...(tempColumnFilters.value[f] || [])]; closeFilterPanel(f) }
+const applyNumericFilter = (field: string, filter: any) => { if (filter) numericFilters.value[field] = filter; else delete numericFilters.value[field]; closeFilterPanel(field) }
 
-// 🔥 NUMERIC FILTER
-const applyNumericFilter = (field: string, filter: any) => {
-    if (filter) { numericFilters.value[field] = filter }
-    else { delete numericFilters.value[field] }
-    closeFilterPanel(field)
-}
-
-
-// ========== EXPORT ==========
 const exportExcel = () => { exportType.value = 'excel'; exportDialog.value = true }
 const exportPDF = () => { exportType.value = 'pdf'; exportDialog.value = true }
 const exportCSV = () => { exportType.value = 'csv'; exportDialog.value = true }
 
-const proceedExport = async () => {
-    exportDialog.value = false
-    if (exportType.value === 'excel') await doExportExcel()
-    else if (exportType.value === 'pdf') doExportPDF()
-    else doExportCSV()
-}
+const proceedExport = () => { exportDialog.value = false; if (exportType.value === 'excel') doExportExcel(); else if (exportType.value === 'pdf') doExportPDF(); else doExportCSV() }
 
 const doExportCSV = () => {
     let csv = '\uFEFF'
-    const exportData = [...filteredData.value]
-    
-    if (exportTarget.value === 'grid') {
-        const cols = gridColumns.value.map(c => c.field)
-        csv += gridColumns.value.map(c => `"${c.header}"`).join(',') + '\n'
-        exportData.forEach(r => csv += cols.map(c => `"${String(r[c] || '').replace(/"/g, '""')}"`).join(',') + '\n')
-    } else {
-        csv += `"${pivotRowLabel.value}","${pivotResult.value.columns.join('","')}","Total"\n`
-        pivotResult.value.rows.forEach(r => csv += `"${r.label}","${pivotResult.value.columns.map((c: string) => r.values[c] || 0).join('","')}","${r.total}"\n`)
-    }
-    
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob); const a = document.createElement('a')
-    a.href = url; a.download = `Laporan_Penjualan_Per_Item_${formatDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url)
-    toast.add({ severity: 'success', summary: 'Export CSV', detail: 'Berhasil', life: 2000 })
+    if (exportTarget.value === 'grid') { csv += gridColumns.value.map(c => `"${c.header}"`).join(',') + '\n'; filteredData.value.forEach(r => csv += gridColumns.value.map(c => `"${String(r[c.field] || '').replace(/"/g, '""')}"`).join(',') + '\n') }
+    else { csv += `"${pivotRowLabel.value}","${pivotResult.value.columns.join('","')}","Total"\n`; pivotResult.value.rows.forEach(r => csv += `"${r.label}","${pivotResult.value.columns.map((c: string) => r.values[c] || 0).join('","')}","${r.total}"\n`) }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Penjualan_Per_Item_${formatDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url)
+    toast.add({ severity: 'success', summary: 'CSV', detail: 'Berhasil', life: 2000 })
 }
 
 const doExportPDF = () => {
     const period = `${startDate.value.toLocaleDateString('id-ID')} - ${endDate.value.toLocaleDateString('id-ID')}`
-    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Laporan Penjualan Per Item</title><style>body{font-family:Arial;padding:20px}h1{font-size:18px;text-align:center;color:#059669}.period{text-align:center;font-size:12px;color:#6b7280;margin-bottom:15px}table{width:100%;border-collapse:collapse;margin:10px 0;font-size:10px}th{background:#10b981;color:white;padding:6px 8px;border:1px solid #059669;font-size:9px}td{padding:5px 8px;border:1px solid #e5e7eb}.tr{text-align:right}</style></head><body><h1>Laporan Penjualan Per Item</h1><div class="period">Periode: ${period}</div>`
-    
-    if (exportTarget.value === 'grid') {
-        html += `<table><thead><tr>${gridColumns.value.map(c => `<th>${c.header}</th>`).join('')}</tr></thead><tbody>`
-        filteredData.value.forEach(r => html += `<tr>${gridColumns.value.map(c => `<td class="${c.align === 'right' ? 'tr' : ''}">${isCurrencyField(c.field) ? formatCurrency(r[c.field]) : (c.field === 'Qty' ? formatNumber(r[c.field]) : (r[c.field] || ''))}</td>`).join('')}</tr>`)
-        html += `</tbody></table>`
-    } else {
-        html += `<table><thead><tr><th>${pivotRowLabel.value}</th>${pivotResult.value.columns.map((c: string) => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead><tbody>`
-        pivotResult.value.rows.forEach(r => html += `<tr><td><strong>${r.label}</strong></td>${pivotResult.value.columns.map((c: string) => `<td class="tr">${formatPivotValue(r.values[c])}</td>`).join('')}<td class="tr"><strong>${formatPivotValue(r.total)}</strong></td></tr>`)
-        html += `<tr style="background:#fef3c7;font-weight:700"><td>TOTAL</td>${pivotResult.value.columns.map((c: string) => `<td class="tr">${formatPivotValue(pivotResult.value.columnTotals[c])}</td>`).join('')}<td class="tr">${formatPivotValue(pivotResult.value.grandTotal)}</td></tr></tbody></table>`
-    }
-    
-    html += `<p style="text-align:right;font-size:9px;color:#9ca3af;margin-top:20px">Dicetak: ${new Date().toLocaleDateString('id-ID')}</p></body></html>`
-    const win = window.open('', '_blank', 'width=1000,height=700')
-    if (win) { win.document.write(html); win.document.close() }
-    toast.add({ severity: 'success', summary: 'Preview PDF', detail: 'Gunakan Print > Save as PDF', life: 3000 })
+    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial;padding:12px;font-size:8px}h1{font-size:13px;text-align:center;color:#059669}table{width:100%;border-collapse:collapse}th{background:#10b981;color:#fff;padding:3px;border:1px solid #059669;font-size:6px}td{padding:2px 3px;border:1px solid #e5e7eb;font-size:7px}.r{text-align:right}</style></head><body><h1>Penjualan Per Item</h1><p style="text-align:center;color:#6b7280">${period}</p>`
+    if (exportTarget.value === 'grid') { html += `<table><thead><tr>${gridColumns.value.map(c => `<th>${c.header}</th>`).join('')}</tr></thead><tbody>`; filteredData.value.forEach(r => html += `<tr>${gridColumns.value.map(c => `<td class="${c.align === 'right' ? 'r' : ''}">${isCurrencyField(c.field) ? formatCurrency(r[c.field]) : c.field === 'Qty' ? formatNumber(r[c.field]) : r[c.field] || ''}</td>`).join('')}</tr>`); html += `</tbody></table>` }
+    else { html += `<table><thead><tr><th>${pivotRowLabel}</th>${pivotResult.value.columns.map(c => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead><tbody>`; pivotResult.value.rows.forEach(r => html += `<tr><td>${r.label}</td>${pivotResult.value.columns.map(c => `<td class="r">${formatPivotValue(r.values[c])}</td>`).join('')}<td class="r"><strong>${formatPivotValue(r.total)}</strong></td></tr>`); html += `</tbody></table>` }
+    html += `</body></html>`
+    const win = window.open('', '_blank', 'width=1000,height=700'); if (win) { win.document.write(html); win.document.close() }
+    toast.add({ severity: 'success', summary: 'Print', detail: 'Gunakan Print > Save as PDF', life: 3000 })
 }
 
 const doExportExcel = async () => {
-    const ExcelJS = await import('exceljs')
-    const wb = new ExcelJS.Workbook()
-    const hs: any = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } }, alignment: { horizontal: 'center', vertical: 'middle' }, border: { top: { style: 'thin', color: { argb: 'FF059669' } }, bottom: { style: 'thin', color: { argb: 'FF059669' } }, left: { style: 'thin', color: { argb: 'FF059669' } }, right: { style: 'thin', color: { argb: 'FF059669' } } } }
-    const ds: any = { font: { size: 10 }, border: { top: { style: 'thin', color: { argb: 'FFD1D5DB' } }, bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } }, left: { style: 'thin', color: { argb: 'FFD1D5DB' } }, right: { style: 'thin', color: { argb: 'FFD1D5DB' } } } }
-    const ns: any = { ...ds, alignment: { horizontal: 'right', vertical: 'middle' }, numFmt: '#,##0' }
-    
+    const ExcelJS = await import('exceljs'); const wb = new ExcelJS.Workbook()
+    const hs: any = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } }, alignment: { horizontal: 'center', vertical: 'middle' } }
+    const ds: any = { font: { size: 9 } }; const ns: any = { ...ds, alignment: { horizontal: 'right' }, numFmt: '#,##0' }
     if (exportTarget.value === 'grid') {
-        const ws = wb.addWorksheet('Penjualan Per Item')
-        ws.mergeCells('A1:L1'); ws.getCell('A1').value = 'LAPORAN PENJUALAN PER ITEM'; ws.getCell('A1').style = { font: { bold: true, size: 14 } }; ws.getRow(1).height = 30
-        ws.mergeCells('A2:L2'); ws.getCell('A2').value = `Periode: ${startDate.value.toLocaleDateString('id-ID')} - ${endDate.value.toLocaleDateString('id-ID')}`; ws.getCell('A2').style = { font: { size: 10, color: { argb: 'FF6B7280' } } }
-        ws.getRow(4).height = 25; gridColumns.value.forEach((c, i) => { const cell = ws.getRow(4).getCell(i + 1); cell.value = c.header; cell.style = hs })
-        const exportData = [...filteredData.value]
-        exportData.forEach((r, i) => {
-            const dr = ws.getRow(5 + i)
-            gridColumns.value.forEach((c, ci) => { const cell = dr.getCell(ci + 1); const isNum = isCurrencyField(c.field) || c.field === 'Qty'; cell.value = isNum ? (parseFloat(r[c.field]) || 0) : String(r[c.field] ?? ''); cell.style = isNum ? ns : ds })
-        })
-        ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + exportData.length, column: gridColumns.value.length } }; ws.views = [{ state: 'frozen', ySplit: 4 }]
+        const ws = wb.addWorksheet('Penjualan Per Item'); ws.getRow(1).height = 22; ws.getRow(4).height = 22
+        gridColumns.value.forEach((c, i) => { const cell = ws.getRow(4).getCell(i + 1); cell.value = c.header; cell.style = hs })
+        filteredData.value.forEach((r, i) => { const dr = ws.getRow(5 + i); gridColumns.value.forEach((c, ci) => { const cell = dr.getCell(ci + 1); const isNum = isCurrencyField(c.field) || c.field === 'Qty'; cell.value = isNum ? (parseFloat(r[c.field]) || 0) : String(r[c.field] ?? ''); cell.style = isNum ? ns : ds }) })
+        ws.autoFilter = { from: 'A4', to: `${String.fromCharCode(64 + gridColumns.value.length)}${4 + filteredData.value.length}` }; ws.views = [{ state: 'frozen', ySplit: 4 }]
     } else {
-        const ws = wb.addWorksheet('Pivot Analysis')
-        ws.mergeCells('A1:E1'); ws.getCell('A1').value = `PIVOT: ${pivotRowLabel.value} x ${pivotCol.value} (${pivotData.value})`; ws.getCell('A1').style = { font: { bold: true, size: 14 } }; ws.getRow(1).height = 30
-        const ph = ws.getRow(3); ph.getCell(1).value = pivotRowLabel.value; ph.getCell(1).style = hs
-        pivotResult.value.columns.forEach((c, i) => { const cell = ph.getCell(i + 2); cell.value = c; cell.style = hs })
-        ph.getCell(pivotResult.value.columns.length + 2).value = 'Total'; ph.getCell(pivotResult.value.columns.length + 2).style = hs
-        pivotResult.value.rows.forEach((r, i) => {
-            const dr = ws.getRow(4 + i); dr.getCell(1).value = r.label; dr.getCell(1).style = { ...ds, font: { bold: true } }
-            pivotResult.value.columns.forEach((c, ci) => { const cell = dr.getCell(ci + 2); cell.value = r.values[c] || 0; cell.style = ns })
-            dr.getCell(pivotResult.value.columns.length + 2).value = r.total; dr.getCell(pivotResult.value.columns.length + 2).style = { ...ns, font: { bold: true } }
-        })
-        ws.getColumn(1).width = 28
+        const ws = wb.addWorksheet('Pivot'); ws.getRow(3).getCell(1).value = pivotRowLabel.value; ws.getRow(3).getCell(1).style = hs
+        pivotResult.value.columns.forEach((c, i) => { const cell = ws.getRow(3).getCell(i + 2); cell.value = String(c); cell.style = hs })
+        ws.getRow(3).getCell(pivotResult.value.columns.length + 2).value = 'Total'; ws.getRow(3).getCell(pivotResult.value.columns.length + 2).style = hs
+        pivotResult.value.rows.forEach((r, i) => { const dr = ws.getRow(4 + i); dr.getCell(1).value = r.label; dr.getCell(1).style = { ...ds, font: { bold: true } }; pivotResult.value.columns.forEach((c, ci) => { dr.getCell(ci + 2).value = r.values[c] || 0; dr.getCell(ci + 2).style = ns }); dr.getCell(pivotResult.value.columns.length + 2).value = r.total; dr.getCell(pivotResult.value.columns.length + 2).style = { ...ns, font: { bold: true } } })
     }
-    
     const buf = await wb.xlsx.writeBuffer(); const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = URL.createObjectURL(blob); const a = document.createElement('a')
-    a.href = url; a.download = `Laporan_Penjualan_Per_Item_${formatDate(new Date())}.xlsx`; a.click(); URL.revokeObjectURL(url)
-    toast.add({ severity: 'success', summary: 'Export Excel', detail: 'Berhasil', life: 2000 })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Penjualan_Per_Item_${formatDate(new Date())}.xlsx`; a.click(); URL.revokeObjectURL(url)
+    toast.add({ severity: 'success', summary: 'Excel', detail: 'Berhasil', life: 2000 })
 }
 
 onMounted(() => { resetTextFilters(); loadData() })
 </script>
 
 <style lang="scss" scoped>
-.report-page { padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
-.report-header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; background: var(--surface-card); border-radius: 0.75rem; border: 1px solid var(--surface-border); .header-left { display: flex; align-items: center; gap: 1rem; } .header-icon { width: 2.75rem; height: 2.75rem; background: var(--primary-50); border-radius: 0.625rem; display: flex; align-items: center; justify-content: center; color: var(--primary-600); font-size: 1.25rem; } h1 { font-size: 1.25rem; font-weight: 700; color: var(--text-color); margin: 0; } p { font-size: 0.813rem; color: var(--text-color-secondary); margin: 0.25rem 0 0 0; } .header-actions { display: flex; gap: 0.5rem; } }
-.report-card { background: var(--surface-card); border-radius: 0.75rem; border: 1px solid var(--surface-border); overflow: hidden; }
-.browse-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-50); .toolbar-left { display: flex; align-items: center; gap: 0.75rem; } .search-input { width: 260px; } .active-filters { display: flex; align-items: center; gap: 0.375rem; padding: 0.2rem 0.75rem; background: var(--surface-200); border-radius: 1rem; font-size: 0.75rem; } .toolbar-right { display: flex; align-items: center; gap: 0.25rem; } .filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; } }
-.text-filter-panel { padding: 0.75rem; border-bottom: 1px solid var(--surface-border); .text-filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem; } .text-filter-item label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); } .text-filter-footer { display: flex; justify-content: space-between; } }
-.date-filter-row { display: flex; align-items: flex-end; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--surface-border); .date-item { display: flex; flex-direction: row; gap: 0.25rem; label { font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); text-transform: uppercase; } } }
-.tab-buttons { display: flex; border-bottom: 2px solid var(--surface-border); button { padding: 0.6rem 1.5rem; border: none; background: transparent; font-size: 0.85rem; color: var(--text-color-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; i { margin-right: 0.5rem; } &.active { color: var(--primary-600); border-bottom-color: var(--primary-500); font-weight: 600; } } }
-.report-table { :deep(.p-datatable-wrapper) { overflow-x: auto !important; } :deep(.p-datatable-thead > tr > th) { background: var(--surface-50); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 0.35rem 0.5rem !important; height: 2rem !important; border-bottom: 2px solid var(--surface-border); white-space: nowrap; } :deep(.p-datatable-tbody > tr > td) { padding: 0.25rem 0.5rem; font-size: 0.8rem; white-space: nowrap; } :deep(.p-datatable-table) { min-width: 1300px; } }
-.column-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between; // ✅ Pastikan space-between
-    gap: 0.25rem;
-    width: 100%; // ✅ Penting!
-    
-    .column-title {
-        flex: 1;
-        font-size: 0.7rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    
-    .filter-active {
-        opacity: 1 !important;
-        background: var(--primary-100) !important;
-        color: var(--primary-700) !important;
-    }
-    
-    :deep(.p-button) {
-        width: 1.5rem !important;
-        height: 1.5rem !important;
-        flex-shrink: 0; // ✅ Jangan mengecil
-        margin-left: auto; // ✅ Push ke kanan
-        opacity: 0;
-        transition: opacity 0.15s;
-        
-        .pi {
-            font-size: 0.75rem !important;
-        }
-    }
-    
-    &:hover :deep(.p-button) {
-        opacity: 1;
-    }
-}
-.currency-text { font-weight: 600; color: var(--primary-600); }
-.number-text { font-weight: 500; }
-.footer-summary-row { display: flex; justify-content: flex-end; gap: 1rem; padding: 0.4rem 0.75rem; .footer-value { font-weight: 700; font-size: 0.8rem; } }
-.filter-panel { width: 280px; max-height: 450px; display: flex; flex-direction: column; .filter-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid var(--surface-border); font-weight: 600; font-size: 0.875rem; } .filter-panel-search { padding: 0.75rem 1rem; border-bottom: 1px solid var(--surface-border); } .filter-panel-actions { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1rem; border-bottom: 1px solid var(--surface-border); } .filter-panel-list { flex: 1; overflow-y: auto; max-height: 250px; padding: 0.5rem 0; .filter-option { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; cursor: pointer; &:hover { background: var(--surface-50); } .filter-label { flex: 1; display: flex; align-items: center; justify-content: space-between; font-size: 0.813rem; cursor: pointer; margin: 0; .option-count { color: var(--text-color-secondary); font-size: 0.75rem; } } } } .filter-panel-footer { padding: 0.75rem 1rem; border-top: 1px solid var(--surface-border); } }
-.pivot-container { padding: 1rem; }
-.pivot-controls { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; .pivot-control { label { font-size: 0.7rem; font-weight: 600; color: var(--text-color-secondary); text-transform: uppercase; display: block; margin-bottom: 0.25rem; } } }
-.pivot-table-wrapper { overflow-x: auto; }
-.pivot-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; th, td { padding: 0.5rem 0.75rem; border: 1px solid var(--surface-border); text-align: right; } .pivot-corner, .pivot-row-header { text-align: left; font-weight: 600; background: var(--surface-50); } .pivot-col-header { background: var(--primary-50); color: var(--primary-700); font-weight: 600; } .pivot-total-header, .pivot-total-cell { font-weight: 700; background: var(--surface-100); } .pivot-grand-total { font-weight: 700; background: var(--primary-100); color: var(--primary-700); font-size: 0.85rem; } }
-.empty-state { display: flex; flex-direction: column; align-items: center; padding: 3rem; color: var(--text-color-secondary); i { font-size: 2.5rem; margin-bottom: 0.75rem; } }
-.w-40 { width: 10rem; }
-.export-dialog-content { .export-dialog-text { font-size: 0.9rem; color: var(--text-color-secondary); margin-bottom: 1.25rem; } .export-options { display: flex; flex-direction: column; gap: 0.75rem; } .export-option { display: flex; align-items: center; gap: 0.875rem; padding: 1rem 1.25rem; border: 2px solid var(--surface-border); border-radius: 0.75rem; cursor: pointer; transition: all 0.2s; .option-radio { .radio-circle { width: 1.25rem; height: 1.25rem; border-radius: 50%; border: 2px solid #cbd5e1; &.checked { border-color: var(--primary-500); background: var(--primary-500); position: relative; &::after { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: white; position: absolute; } } } } .option-icon { width: 2.5rem; height: 2.5rem; background: var(--surface-100); border-radius: 0.625rem; display: flex; align-items: center; justify-content: center; i { font-size: 1.25rem; } } .option-text { strong { display: block; font-size: 0.9rem; } small { font-size: 0.75rem; color: var(--text-color-secondary); } } &:hover { border-color: var(--primary-300); background: var(--primary-50); } &.active { border-color: var(--primary-500); background: var(--primary-50); } } }
-@media (max-width: 768px) { .report-header { flex-direction: column; align-items: flex-start; gap: 1rem; .header-actions { width: 100%; button { flex: 1; } } } }
-.date-filter-row {
-  display: flex;
-  align-items: center;  /* ini yang bikin sejajar vertikal */
-  gap: 16px;
+.report-page { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.main-card { flex: 1; display: flex; flex-direction: column; background: var(--surface-card); border-radius: 0.5rem; border: 1px solid var(--surface-border); overflow: hidden; min-height: 0; }
+
+.toolbar { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-50); flex-shrink: 0; flex-wrap: wrap; }
+.search-box { display: flex; align-items: center; background: var(--surface-0); border: 1px solid var(--surface-border); border-radius: 0.35rem; padding: 0 0.35rem; height: 1.85rem; width: 200px; flex-shrink: 0; i { font-size: 0.7rem; color: var(--text-color-secondary); } .clear-btn { cursor: pointer; margin-left: auto; } .search-input { flex: 1; border: none; background: transparent; padding: 0 0.3rem; font-size: 0.75rem; outline: none; color: var(--text-color); &::placeholder { color: var(--text-color-secondary); } } }
+.filter-item { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; .filter-label { font-size: 0.68rem; font-weight: 600; color: var(--text-color-secondary); white-space: nowrap; } .date-sep { font-size: 0.68rem; color: var(--text-color-secondary); } :deep(.p-datepicker) { width: 125px; .p-datepicker-input { font-size: 0.73rem; height: 1.85rem; padding: 0 0.35rem; } } }
+.filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; }
+.actions { display: flex; gap: 0.1rem; margin-left: auto; flex-shrink: 0; align-items: center; :deep(.p-button) { width: 1.65rem !important; height: 1.65rem !important; } }
+
+.text-filter-panel { padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-0); display: flex; align-items: flex-end; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; .text-filter-grid { display: flex; gap: 0.35rem; flex-wrap: wrap; flex: 1; } .text-filter-input { height: 1.75rem; padding: 0 0.4rem; border: 1px solid var(--surface-border); border-radius: 0.3rem; font-size: 0.72rem; outline: none; width: 140px; } .text-filter-actions { display: flex; gap: 0.25rem; flex-shrink: 0; } }
+
+.tab-buttons { display: flex; border-bottom: 2px solid var(--surface-border); flex-shrink: 0; button { padding: 0.45rem 1.25rem; border: none; background: transparent; font-size: 0.78rem; font-weight: 500; color: var(--text-color-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; i { margin-right: 0.4rem; font-size: 0.8rem; } &:hover { color: var(--primary-600); } &.active { color: var(--primary-600); border-bottom-color: var(--primary-500); font-weight: 600; } } }
+
+.table-area { flex: 1; overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
+
+.data-table { flex: 1; display: flex; flex-direction: column; min-height: 0;
+    :deep(.p-datatable-wrapper) { flex: 1; overflow: auto; min-height: 0; }
+    :deep(.p-datatable-thead > tr > th) { background: var(--surface-50); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-color-secondary); padding: 0.35rem 0.45rem !important; border-bottom: 2px solid var(--surface-border); white-space: nowrap; letter-spacing: 0.03em; position: sticky; top: 0; z-index: 2; }
+    :deep(.p-datatable-tbody > tr > td) { padding: 0.25rem 0.45rem; font-size: 0.75rem; white-space: nowrap; }
+    :deep(.p-datatable-tbody > tr:hover) { background: var(--surface-50); }
+    :deep(.p-datatable-tfoot > tr > td) { padding: 0.35rem 0.45rem; font-size: 0.72rem; font-weight: 700; background: var(--surface-100); border-top: 2px solid var(--primary-300); color: var(--primary-700); white-space: nowrap; position: sticky; bottom: 0; z-index: 2; }
+    :deep(.p-paginator) { padding: 0.25rem 0.4rem; font-size: 0.7rem; border-top: 1px solid var(--surface-border); flex-shrink: 0; background: var(--surface-card); .p-paginator-page, .p-paginator-first, .p-paginator-prev, .p-paginator-next, .p-paginator-last { min-width: 1.5rem; height: 1.5rem; font-size: 0.7rem; } }
+    :deep(.p-sortable-column-icon) { font-size: 0.6rem !important; width: 1.25rem; height: 1.25rem; display: inline-flex; align-items: center; justify-content: center; }
 }
 
-.date-item {
-  display: flex;
-  align-items: center;  /* label dan input sejajar */
-  gap: 8px;
-}
+.col-header { display: flex; align-items: center; width: 100%; .col-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .col-icons { display: flex; align-items: center; gap: 0.15rem; flex-shrink: 0; margin-left: auto; } }
+.col-filter-btn { width: 1.25rem; height: 1.25rem; border-radius: 0.2rem; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.12s; flex-shrink: 0; color: var(--text-color-secondary); i { font-size: 0.6rem; } &:hover { background: var(--surface-200); } &.active { opacity: 1; background: var(--primary-100); color: var(--primary-700); } }
+.col-header:hover .col-filter-btn { opacity: 1; }
 
-.date-item label {
-  white-space: nowrap;  /* biar label tidak wrap ke bawah */
-  font-weight: 600;
-}
+.text-currency { font-weight: 600; color: var(--primary-600); }
+.text-number { font-weight: 500; }
+.footer-label { font-weight: 700; color: var(--primary-700); }
+.footer-value { font-weight: 700; color: var(--primary-700); }
+
+.mini-filter { width: 230px; display: flex; flex-direction: column; .mini-filter-head { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--surface-border); font-weight: 600; font-size: 0.76rem; } .mini-filter-search { position: relative; padding: 0.35rem 0.65rem; border-bottom: 1px solid var(--surface-border); i { position: absolute; left: 1.05rem; top: 50%; transform: translateY(-50%); font-size: 0.65rem; } .mini-filter-input { width: 100%; height: 1.55rem; padding: 0 0.35rem 0 1.5rem; border: 1px solid var(--surface-border); border-radius: 0.25rem; font-size: 0.7rem; outline: none; } } .mini-filter-actions { display: flex; justify-content: space-between; padding: 0.25rem 0.65rem; border-bottom: 1px solid var(--surface-border); button { background: none; border: none; font-size: 0.65rem; color: var(--primary-600); cursor: pointer; font-weight: 500; } } .mini-filter-list { max-height: 160px; overflow-y: auto; padding: 0.15rem 0; } .mini-filter-opt { display: flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; cursor: pointer; font-size: 0.7rem; &:hover { background: var(--surface-50); } input[type="checkbox"] { width: 0.75rem; height: 0.75rem; accent-color: var(--primary-500); } span { flex: 1; } small { color: var(--text-color-secondary); font-size: 0.62rem; } } .mini-filter-empty { padding: 1.25rem; text-align: center; color: var(--text-color-secondary); font-size: 0.7rem; } .mini-filter-foot { padding: 0.35rem 0.65rem; border-top: 1px solid var(--surface-border); } }
+
+.pivot-select { width: 130px; :deep(.p-select) { height: 1.85rem; .p-select-label { font-size: 0.73rem; } } }
+.pivot-controls { display: flex; gap: 0.5rem; padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-0); flex-shrink: 0; flex-wrap: wrap; }
+.pivot-table-wrapper { flex: 1; overflow: auto; min-height: 0; padding: 0.5rem; }
+.pivot-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; th, td { padding: 0.35rem 0.5rem; border: 1px solid var(--surface-border); text-align: right; } .pivot-corner, .pivot-row-header { text-align: left; font-weight: 600; background: var(--surface-50); } .pivot-col-header { background: var(--primary-50); color: var(--primary-700); font-weight: 600; } .pivot-total-header, .pivot-total-cell { font-weight: 700; background: var(--surface-100); } .pivot-grand-total { font-weight: 700; background: var(--primary-100); color: var(--primary-700); } }
+
+.export-option-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 2px solid var(--surface-border); border-radius: 0.625rem; cursor: pointer; transition: all 0.15s; + .export-option-card { margin-top: 0.5rem; } .export-option-icon { width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--surface-100); i { font-size: 1.2rem; } } .export-option-info { flex: 1; strong { display: block; font-size: 0.85rem; } small { font-size: 0.7rem; color: var(--text-color-secondary); } } .check-icon { font-size: 1.2rem; color: var(--primary-500); opacity: 0; } &:hover { border-color: var(--primary-300); background: var(--primary-50); } &.active { border-color: var(--primary-500); background: var(--primary-50); .check-icon { opacity: 1; } } }
+
+.table-empty { display: flex; flex-direction: column; align-items: center; padding: 2.5rem; color: var(--text-color-secondary); gap: 0.5rem; i { font-size: 2rem; } span { font-size: 0.8rem; } }
+
+@media (max-width: 900px) { .toolbar { gap: 0.35rem; padding: 0.35rem 0.5rem; } }
+@media (max-width: 640px) { .search-box { width: 100%; } .filter-item { flex-wrap: wrap; .filter-label { width: 100%; } } .text-filter-input { width: 100%; } }
+@media (max-width: 768px) { .data-table { :deep(.p-datatable-thead > tr > th) { font-size: 0.63rem; padding: 0.25rem 0.35rem !important; } :deep(.p-datatable-tbody > tr > td) { font-size: 0.7rem; padding: 0.2rem 0.35rem; } } }
 </style>

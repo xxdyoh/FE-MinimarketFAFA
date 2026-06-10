@@ -1,1666 +1,375 @@
 <template>
-  <div class="report-page">
-    <!-- Header -->
-    <!--  <div class="report-header">
-            <div class="header-left">
-                <div class="header-icon">
-                    <i class="pi pi-list"></i>
+    <div class="report-page">
+        <div class="main-card">
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <div class="search-box">
+                    <i class="pi pi-search"></i>
+                    <input v-model="searchKeyword" placeholder="Cari kode, nama..." class="search-input" />
+                    <i v-if="searchKeyword" class="pi pi-times clear-btn" @click="searchKeyword = ''"></i>
                 </div>
-                <div class="header-text">
-                    <h1>Laporan Pembelian Per Item</h1>
-                     <p>Detail pembelian per barang dengan pivot</p>
+
+                <div class="filter-item">
+                    <span class="filter-label">Periode</span>
+                    <DatePicker v-model="startDate" dateFormat="yy-mm-dd" showIcon size="small" />
+                    <span class="date-sep">s/d</span>
+                    <DatePicker v-model="endDate" dateFormat="yy-mm-dd" showIcon size="small" />
+                </div>
+
+                <Button icon="pi pi-filter" severity="secondary" text rounded size="small" :class="{ 'filter-active': showTextFilter || activeFiltersCount > 0 }" @click="showTextFilter = !showTextFilter" v-tooltip.top="'Filter Teks'" />
+
+                <div class="actions">
+                    <Button icon="pi pi-refresh" text rounded size="small" :loading="loading" @click="loadData" v-tooltip.top="'Refresh'" />
+                    <Button icon="pi pi-file-excel" text rounded size="small" severity="success" @click="exportExcel" v-tooltip.top="'Excel'" />
+                    <Button icon="pi pi-print" text rounded size="small" @click="exportPDF" v-tooltip.top="'Print'" />
                 </div>
             </div>
-            <div class="header-actions">
-                <Button label="Export Excel" icon="pi pi-file-excel" severity="success" size="small" @click="exportExcel" />
-                <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="exportPDF" />
-                <Button label="Export CSV" icon="pi pi-file" severity="info" size="small" @click="exportCSV" />
-            </div>
-        </div>
- -->
-    <!-- Export Dialog -->
-    <Dialog
-      v-model:visible="exportDialog"
-      header="Export Laporan"
-      :modal="true"
-      :style="{ width: '420px' }"
-    >
-      <div class="export-dialog-content">
-        <p class="export-dialog-text">Pilih tampilan yang akan diexport:</p>
-        <div class="export-options">
-          <div
-            class="export-option"
-            :class="{ active: exportTarget === 'grid' }"
-            @click="exportTarget = 'grid'"
-          >
-            <div class="option-radio">
-              <div
-                class="radio-circle"
-                :class="{ checked: exportTarget === 'grid' }"
-              ></div>
-            </div>
-            <div class="option-icon">
-              <i class="pi pi-table"></i>
-            </div>
-            <div class="option-text">
-              <strong>Grid View</strong>
-              <small>Export data tabel (11 kolom)</small>
-            </div>
-          </div>
-          <div
-            class="export-option"
-            :class="{ active: exportTarget === 'pivot' }"
-            @click="exportTarget = 'pivot'"
-          >
-            <div class="option-radio">
-              <div
-                class="radio-circle"
-                :class="{ checked: exportTarget === 'pivot' }"
-              ></div>
-            </div>
-            <div class="option-icon">
-              <i class="pi pi-chart-bar"></i>
-            </div>
-            <div class="option-text">
-              <strong>Pivot</strong>
-              <small
-                >Export hasil pivot ({{ pivotRowLabel }} x
-                {{ pivotCol }})</small
-              >
-            </div>
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Batal" text size="small" @click="exportDialog = false" />
-        <Button
-          label="Export"
-          severity="primary"
-          size="small"
-          @click="proceedExport"
-        />
-      </template>
-    </Dialog>
 
-    <!-- Filter & Toolbar -->
-    <div class="report-card">
-      <!-- Toolbar -->
-      <div class="browse-toolbar">
-        <div class="toolbar-left">
-          <IconField iconPosition="left">
-            <InputIcon class="pi pi-search" />
-            <InputText
-              v-model="searchKeyword"
-              placeholder="Cari semua kolom..."
-              size="small"
-              class="search-input"
-              @input="onSearchInput"
-            />
-          </IconField>
-          <div v-if="activeFiltersCount > 0" class="active-filters">
-            <i class="pi pi-filter-fill"></i>
-            <span>{{ activeFiltersCount }} filter aktif</span>
-            <Button
-              icon="pi pi-times"
-              text
-              rounded
-              size="small"
-              severity="secondary"
-              @click="clearAllFilters"
-            />
-          </div>
-        </div>
-        <div class="toolbar-right">
-          <Button
-            label="Export Excel"
-            icon="pi pi-file-excel"
-            severity="success"
-            size="small"
-            @click="exportExcel"
-          />
-          <Button
-            label="Export PDF"
-            icon="pi pi-file-pdf"
-            severity="danger"
-            size="small"
-            @click="exportPDF"
-          />
-          <Button
-            label="Export CSV"
-            icon="pi pi-file"
-            severity="info"
-            size="small"
-            @click="exportCSV"
-          />
-          <Button
-            icon="pi pi-refresh"
-            severity="secondary"
-            text
-            size="small"
-            :loading="loading"
-            @click="loadData"
-          />
-          <Button
-            icon="pi pi-filter"
-            severity="secondary"
-            text
-            size="small"
-            :class="{ 'filter-active': showTextFilter }"
-            @click="showTextFilter = !showTextFilter"
-          />
-        </div>
-      </div>
-
-      <!-- Text Filter Panel -->
-      <div v-if="showTextFilter" class="text-filter-panel">
-        <div class="text-filter-grid">
-          <div
-            v-for="col in filterableColumns"
-            :key="col.field"
-            class="text-filter-item"
-          >
-            <label>{{ col.header }}</label>
-            <InputText
-              v-model="textFilters[col.field]"
-              :placeholder="'Filter ' + col.header + '...'"
-              size="small"
-              class="w-full"
-              @keydown.enter="applyTextFilters"
-            />
-          </div>
-        </div>
-        <div class="text-filter-footer">
-          <Button label="Reset" text size="small" @click="resetTextFilters" />
-          <Button
-            label="Terapkan"
-            severity="primary"
-            size="small"
-            @click="applyTextFilters"
-          />
-        </div>
-      </div>
-
-      <div class="date-filter-row">
-        <div class="date-item">
-          <label>Tanggal Mulai</label>
-          <DatePicker
-            v-model="startDate"
-            dateFormat="yy-mm-dd"
-            showIcon
-            size="small"
-          />
-        </div>
-        <div class="date-item">
-          <label>Tanggal Akhir</label>
-          <DatePicker
-            v-model="endDate"
-            dateFormat="yy-mm-dd"
-            showIcon
-            size="small"
-          />
-        </div>
-      </div>
-
-      <!-- Tab View: Grid | Pivot -->
-      <div class="tab-buttons">
-        <button
-          :class="{ active: activeTab === 'grid' }"
-          @click="activeTab = 'grid'"
-        >
-          <i class="pi pi-table"></i> Grid
-        </button>
-        <button
-          :class="{ active: activeTab === 'pivot' }"
-          @click="activeTab = 'pivot'"
-        >
-          <i class="pi pi-chart-bar"></i> Pivot
-        </button>
-      </div>
-
-      <!-- GRID VIEW -->
-      <div v-show="activeTab === 'grid'">
-        <DataTable
-          :value="filteredData"
-          :loading="loading"
-          class="report-table"
-          stripedRows
-          size="small"
-          showGridlines
-          paginator
-          :rows="25"
-          :rowsPerPageOptions="[10, 25, 50, 100]"
-          sortField="Tanggal"
-          :sortOrder="-1"
-        >
-          <template #empty>
-            <div class="empty-state">
-              <i class="pi pi-inbox"></i>
-              <p>Klik "Load Data" untuk menampilkan laporan</p>
+            <!-- Text Filter Panel -->
+            <div v-if="showTextFilter" class="text-filter-panel">
+                <div class="text-filter-grid">
+                    <div v-for="col in filterableColumns" :key="col.field" class="text-filter-item">
+                        <input v-model="textFilters[col.field]" :placeholder="col.header" class="text-filter-input" @keydown.enter="applyTextFilters" />
+                    </div>
+                </div>
+                <div class="text-filter-actions">
+                    <Button label="Reset" text size="small" @click="resetTextFilters" />
+                    <Button label="Terapkan" severity="primary" size="small" @click="applyTextFilters" />
+                </div>
             </div>
-          </template>
 
-          <Column
-            v-for="col in gridColumns"
-            :key="col.field"
-            :field="col.field"
-            :sortable="true"
-            :style="{
-              width: col.width || 'auto',
-              textAlign: col.align || 'left',
-            }"
-          >
-            <template #header>
-              <div class="column-header">
-                <span class="column-title">{{ col.header }}</span>
-                <Button
-                  icon="pi pi-filter"
-                  text
-                  rounded
-                  size="small"
-                  :class="{ 'filter-active': hasColumnFilter(col.field) }"
-                  @click.stop="toggleColumnFilter(col, $event)"
-                />
-                <OverlayPanel
-                  :ref="(el) => setFilterOverlayRef(col.field, el)"
-                  @hide="onFilterPanelHide(col.field)"
+            <!-- Tab Buttons -->
+            <div class="tab-buttons">
+                <button :class="{ active: activeTab === 'grid' }" @click="activeTab = 'grid'">
+                    <i class="pi pi-table"></i> Grid
+                </button>
+                <button :class="{ active: activeTab === 'pivot' }" @click="activeTab = 'pivot'">
+                    <i class="pi pi-chart-bar"></i> Pivot
+                </button>
+            </div>
+
+            <!-- GRID VIEW -->
+            <div v-show="activeTab === 'grid'" class="table-area">
+                <DataTable
+                    :value="filteredData" :loading="loading" stripedRows size="small" showGridlines
+                    paginator :rows="25" :rowsPerPageOptions="[10, 25, 50, 100]"
+                    sortField="Tanggal" :sortOrder="-1"
+                    scrollable scrollHeight="flex" scrollDirection="horizontal" responsiveLayout="scroll"
+                    class="data-table"
                 >
-                  <div class="filter-panel">
-                    <div class="filter-panel-header">
-                      <span>Filter {{ col.header }}</span>
-                      <Button
-                        icon="pi pi-times"
-                        text
-                        rounded
-                        size="small"
-                        @click="closeFilterPanel(col.field)"
-                      />
+                    <template #empty>
+                        <div class="table-empty"><i class="pi pi-inbox"></i><span>Tidak ada data</span></div>
+                    </template>
+
+                    <Column v-for="col in gridColumns" :key="col.field" :field="col.field" :sortable="col.sortable !== false" :style="{ width: col.width, minWidth: col.minWidth || '60px', textAlign: col.align || 'left' }">
+                        <template #header>
+                            <div class="col-header">
+                                <span class="col-title">{{ col.header }}</span>
+                                <div class="col-icons">
+                                    <button class="col-filter-btn" :class="{ 'active': hasColumnFilter(col.field) }" @click.stop="openColumnFilter(col, $event)">
+                                        <i class="pi pi-filter"></i>
+                                    </button>
+                                </div>
+                                <OverlayPanel :ref="(el) => setFilterOverlayRef(col.field, el)" @hide="onFilterPanelHide(col.field)">
+                                    <div class="mini-filter">
+                                        <div class="mini-filter-head"><span>Filter {{ col.header }}</span><Button icon="pi pi-times" text rounded size="small" @click="closeFilterPanel(col.field)" /></div>
+                                        <div class="mini-filter-search"><i class="pi pi-search"></i><input v-model="filterSearchTerms[col.field]" placeholder="Cari..." class="mini-filter-input" /></div>
+                                        <div class="mini-filter-actions"><button @click="selectAll(col.field)">Pilih Semua</button><button @click="clearFilter(col.field)">Bersihkan</button></div>
+                                        <div class="mini-filter-list">
+                                            <label v-for="opt in getFilteredOptions(col.field)" :key="opt.value" class="mini-filter-opt"><input type="checkbox" :value="opt.value" v-model="tempColumnFilters[col.field]" /><span>{{ opt.label }}</span><small>{{ opt.count }}</small></label>
+                                            <div v-if="getFilteredOptions(col.field).length === 0" class="mini-filter-empty">Tidak ada</div>
+                                        </div>
+                                        <div class="mini-filter-foot"><Button label="Terapkan" severity="primary" size="small" class="w-full" @click="applyColumnFilter(col.field)" /></div>
+                                    </div>
+                                </OverlayPanel>
+                            </div>
+                        </template>
+                        <template v-if="col.field === 'Nilai'" #body="{ data }"><span class="text-currency">{{ formatCurrency(data[col.field]) }}</span></template>
+                        <template v-else-if="col.field === 'Qty'" #body="{ data }"><span class="text-number">{{ formatNumber(data[col.field]) }}</span></template>
+                        <template v-if="col.field === 'Nota'" #footer><span class="footer-label">TOTAL</span></template>
+                        <template v-else-if="col.field === 'Qty'" #footer><span class="footer-value">{{ formatNumber(totalQty) }}</span></template>
+                        <template v-else-if="col.field === 'Nilai'" #footer><span class="footer-value">{{ formatCurrency(totalNilai) }}</span></template>
+                    </Column>
+                </DataTable>
+            </div>
+
+            <!-- PIVOT VIEW -->
+            <div v-show="activeTab === 'pivot'" class="table-area">
+                <div class="pivot-controls">
+                    <div class="filter-item">
+                        <span class="filter-label">Baris</span>
+                        <Select v-model="pivotRow" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" />
                     </div>
-                    <div class="filter-panel-search">
-                      <IconField iconPosition="left">
-                        <InputIcon class="pi pi-search" />
-                        <InputText
-                          v-model="filterSearchTerms[col.field]"
-                          placeholder="Cari nilai..."
-                          size="small"
-                          class="w-full"
-                        />
-                      </IconField>
+                    <div class="filter-item">
+                        <span class="filter-label">Kolom</span>
+                        <Select v-model="pivotCol" :options="pivotFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" />
                     </div>
-                    <div class="filter-panel-actions">
-                      <Button
-                        label="Pilih Semua"
-                        text
-                        size="small"
-                        @click="selectAll(col.field)"
-                      />
-                      <Button
-                        label="Bersihkan"
-                        text
-                        size="small"
-                        @click="clearFilter(col.field)"
-                      />
+                    <div class="filter-item">
+                        <span class="filter-label">Data</span>
+                        <Select v-model="pivotData" :options="pivotDataFields" optionLabel="label" optionValue="value" size="small" class="pivot-select" @change="buildPivot" />
                     </div>
-                    <div class="filter-panel-list">
-                      <div
-                        v-for="opt in getFilteredOptions(col.field)"
-                        :key="opt.value"
-                        class="filter-option"
-                      >
-                        <Checkbox
-                          v-model="tempColumnFilters[col.field]"
-                          :value="opt.value"
-                          :inputId="`f-${col.field}-${opt.value}`"
-                        />
-                        <label
-                          :for="`f-${col.field}-${opt.value}`"
-                          class="filter-label"
-                        >
-                          <span>{{ opt.label }}</span>
-                          <span class="option-count">({{ opt.count }})</span>
-                        </label>
-                      </div>
-                      <div
-                        v-if="getFilteredOptions(col.field).length === 0"
-                        class="filter-empty"
-                      >
-                        Tidak ada nilai
-                      </div>
-                    </div>
-                    <div class="filter-panel-footer">
-                      <Button
-                        label="Terapkan"
-                        severity="primary"
-                        size="small"
-                        class="w-full"
-                        @click="applyColumnFilter(col.field)"
-                      />
-                    </div>
-                  </div>
-                </OverlayPanel>
-              </div>
+                </div>
+                <div class="pivot-table-wrapper">
+                    <table class="pivot-table" v-if="pivotResult.rows.length > 0">
+                        <thead>
+                            <tr>
+                                <th class="pivot-corner">{{ pivotRowLabel }}</th>
+                                <th v-for="col in pivotResult.columns" :key="col" class="pivot-col-header">{{ col }}</th>
+                                <th class="pivot-total-header">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in pivotResult.rows" :key="row.label">
+                                <td class="pivot-row-header">{{ row.label }}</td>
+                                <td v-for="col in pivotResult.columns" :key="col" class="pivot-cell">{{ formatPivotValue(row.values[col]) }}</td>
+                                <td class="pivot-total-cell">{{ formatPivotValue(row.total) }}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td class="pivot-total-header">Total</td>
+                                <td v-for="col in pivotResult.columns" :key="col" class="pivot-total-cell">{{ formatPivotValue(pivotResult.columnTotals[col]) }}</td>
+                                <td class="pivot-grand-total">{{ formatPivotValue(pivotResult.grandTotal) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Dialog -->
+        <Dialog v-model:visible="exportDialog" header="Export Laporan" :modal="true" :style="{ width: '400px' }" :breakpoints="{ '480px': '90vw' }">
+            <div class="export-dialog-content">
+                <p class="export-dialog-text">Pilih tampilan yang akan diexport:</p>
+                <div class="export-option-card" :class="{ 'active': exportTarget === 'grid' }" @click="exportTarget = 'grid'">
+                    <div class="export-option-icon"><i class="pi pi-table"></i></div>
+                    <div class="export-option-info"><strong>Grid View</strong><small>Export data tabel</small></div>
+                    <i class="pi pi-check-circle check-icon" v-if="exportTarget === 'grid'"></i>
+                </div>
+                <div class="export-option-card" :class="{ 'active': exportTarget === 'pivot' }" @click="exportTarget = 'pivot'">
+                    <div class="export-option-icon"><i class="pi pi-chart-bar"></i></div>
+                    <div class="export-option-info"><strong>Pivot</strong><small>Export hasil pivot</small></div>
+                    <i class="pi pi-check-circle check-icon" v-if="exportTarget === 'pivot'"></i>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" text size="small" @click="exportDialog = false" />
+                <Button label="Export" severity="primary" size="small" @click="proceedExport" />
             </template>
-            <template
-              v-if="col.field === 'Nilai' || col.field === 'Qty'"
-              #body="{ data }"
-            >
-              <span class="currency-text">{{
-                col.field === "Nilai"
-                  ? formatCurrency(data[col.field])
-                  : formatNumber(data[col.field])
-              }}</span>
-            </template>
-          </Column>
-
-          <template #footer>
-            <div class="footer-summary-row">
-              <span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span>
-              <span class="footer-value"
-                >Qty: {{ formatNumber(totalQty) }}</span
-              >
-              <span class="footer-value currency-text"
-                >Nilai: {{ formatCurrency(totalNilai) }}</span
-              >
-            </div>
-          </template>
-        </DataTable>
-      </div>
-
-      <!-- PIVOT VIEW -->
-      <div v-show="activeTab === 'pivot'" class="pivot-container">
-        <div class="pivot-controls">
-          <div class="pivot-control">
-            <label>Baris (Row)</label>
-            <Select
-              v-model="pivotRow"
-              :options="pivotFields"
-              optionLabel="label"
-              optionValue="value"
-              size="small"
-              class="w-40"
-              @change="buildPivot"
-            />
-          </div>
-          <div class="pivot-control">
-            <label>Kolom (Column)</label>
-            <Select
-              v-model="pivotCol"
-              :options="pivotFields"
-              optionLabel="label"
-              optionValue="value"
-              size="small"
-              class="w-40"
-              @change="buildPivot"
-            />
-          </div>
-          <div class="pivot-control">
-            <label>Data (Value)</label>
-            <Select
-              v-model="pivotData"
-              :options="pivotDataFields"
-              optionLabel="label"
-              optionValue="value"
-              size="small"
-              class="w-40"
-              @change="buildPivot"
-            />
-          </div>
-        </div>
-        <div class="pivot-table-wrapper">
-          <table class="pivot-table" v-if="pivotResult.rows.length > 0">
-            <thead>
-              <tr>
-                <th class="pivot-corner">{{ pivotRowLabel }}</th>
-                <th
-                  v-for="col in pivotResult.columns"
-                  :key="col"
-                  class="pivot-col-header"
-                >
-                  {{ col }}
-                </th>
-                <th class="pivot-total-header">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in pivotResult.rows" :key="row.label">
-                <td class="pivot-row-header">{{ row.label }}</td>
-                <td
-                  v-for="col in pivotResult.columns"
-                  :key="col"
-                  class="pivot-cell"
-                >
-                  {{ formatPivotValue(row.values[col]) }}
-                </td>
-                <td class="pivot-total-cell">
-                  {{ formatPivotValue(row.total) }}
-                </td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr>
-                <td class="pivot-total-header">Total</td>
-                <td
-                  v-for="col in pivotResult.columns"
-                  :key="col"
-                  class="pivot-total-cell"
-                >
-                  {{ formatPivotValue(pivotResult.columnTotals[col]) }}
-                </td>
-                <td class="pivot-grand-total">
-                  {{ formatPivotValue(pivotResult.grandTotal) }}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
+        </Dialog>
     </div>
-  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useToast } from "primevue/usetoast";
 import OverlayPanel from "primevue/overlaypanel";
-import Checkbox from "primevue/checkbox";
 
 definePageMeta({ layout: "default" });
 
 const { $api } = useNuxtApp();
 const toast = useToast();
 
-// Data
 const loading = ref(false);
 const data = ref<any[]>([]);
-const startDate = ref(
-  new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-);
+const startDate = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 const endDate = ref(new Date());
-const filterSupplier = ref(null);
-const supplierList = ref<any[]>([]);
 const searchKeyword = ref("");
 const showTextFilter = ref(false);
 const textFilters = ref<Record<string, string>>({});
 const activeTextFilters = ref<Record<string, string>>({});
 const activeTab = ref<"grid" | "pivot">("grid");
-
-// Column filter state
 const filterOverlays = ref<Record<string, any>>({});
 const tempColumnFilters = ref<Record<string, any[]>>({});
 const activeColumnFilters = ref<Record<string, any[]>>({});
 const filterSearchTerms = ref<Record<string, string>>({});
 const filterOptionsCache = ref<Record<string, any[]>>({});
 
-// Grid columns
 const gridColumns = [
-  { field: "Bulan", header: "Bln", width: "55px", align: "center" },
-  { field: "Tahun", header: "Thn", width: "55px", align: "center" },
-  { field: "Nota", header: "Nota", width: "110px" },
-  { field: "Tanggal", header: "Tanggal", width: "90px" },
-  { field: "Supplier", header: "Supplier", width: "180px" },
-  { field: "Kode", header: "Kode", width: "90px" },
-  { field: "Nama", header: "Nama Barang", width: "200px" },
-  { field: "Satuan", header: "Sat", width: "60px", align: "center" },
-  { field: "Kategori", header: "Kategori", width: "100px" },
-  { field: "Qty", header: "Qty", width: "70px", align: "right" },
-  { field: "Nilai", header: "Nilai", width: "130px", align: "right" },
+    { field: "Bulan", header: "Bln", width: "55px", minWidth: "50px", align: "center" },
+    { field: "Tahun", header: "Thn", width: "55px", minWidth: "50px", align: "center" },
+    { field: "Nota", header: "Nota", width: "110px", minWidth: "100px" },
+    { field: "Tanggal", header: "Tanggal", width: "90px", minWidth: "80px" },
+    { field: "Supplier", header: "Supplier", width: "180px", minWidth: "150px" },
+    { field: "Kode", header: "Kode", width: "90px", minWidth: "80px" },
+    { field: "Nama", header: "Nama Barang", width: "200px", minWidth: "160px" },
+    { field: "Satuan", header: "Sat", width: "60px", minWidth: "50px", align: "center" },
+    { field: "Kategori", header: "Kategori", width: "100px", minWidth: "90px" },
+    { field: "Qty", header: "Qty", width: "70px", minWidth: "60px", align: "right" },
+    { field: "Nilai", header: "Nilai", width: "130px", minWidth: "110px", align: "right" },
 ];
 
 const filterableColumns = [
-  { field: "Nota", header: "Nota" },
-  { field: "Supplier", header: "Supplier" },
-  { field: "Kode", header: "Kode" },
-  { field: "Nama", header: "Nama Barang" },
-  { field: "Kategori", header: "Kategori" },
-  { field: "Bulan", header: "Bulan" },
-  { field: "Tahun", header: "Tahun" },
+    { field: "Nota", header: "Nota" }, { field: "Supplier", header: "Supplier" },
+    { field: "Kode", header: "Kode" }, { field: "Nama", header: "Nama" },
+    { field: "Kategori", header: "Kategori" }, { field: "Bulan", header: "Bulan" }, { field: "Tahun", header: "Tahun" },
 ];
 
-// Pivot state
 const pivotRow = ref("Supplier");
 const pivotCol = ref("Bulan");
 const pivotData = ref("Nilai");
-const pivotResult = ref<{
-  columns: string[];
-  rows: any[];
-  columnTotals: any;
-  grandTotal: number;
-}>({ columns: [], rows: [], columnTotals: {}, grandTotal: 0 });
+const pivotResult = ref<{ columns: string[]; rows: any[]; columnTotals: any; grandTotal: number }>({ columns: [], rows: [], columnTotals: {}, grandTotal: 0 });
+const pivotFields = [{ label: "Bulan", value: "Bulan" }, { label: "Tahun", value: "Tahun" }, { label: "Supplier", value: "Supplier" }, { label: "Kategori", value: "Kategori" }, { label: "Nama Barang", value: "Nama" }];
+const pivotDataFields = [{ label: "Qty", value: "Qty" }, { label: "Nilai", value: "Nilai" }];
+const pivotRowLabel = computed(() => pivotFields.find(f => f.value === pivotRow.value)?.label || "");
 
-const pivotFields = [
-  { label: "Bulan", value: "Bulan" },
-  { label: "Tahun", value: "Tahun" },
-  { label: "Supplier", value: "Supplier" },
-  { label: "Kategori", value: "Kategori" },
-  { label: "Nama Barang", value: "Nama" },
-];
-const pivotDataFields = [
-  { label: "Qty", value: "Qty" },
-  { label: "Nilai", value: "Nilai" },
-];
-const pivotRowLabel = computed(
-  () => pivotFields.find((f) => f.value === pivotRow.value)?.label || ""
-);
-
-// Computed
-const totalQty = computed(() =>
-  filteredData.value.reduce((s, r) => s + (parseFloat(r.Qty) || 0), 0)
-);
-const totalNilai = computed(() =>
-  filteredData.value.reduce((s, r) => s + (parseFloat(r.Nilai) || 0), 0)
-);
+const totalQty = computed(() => filteredData.value.reduce((s, r) => s + (parseFloat(r.Qty) || 0), 0));
+const totalNilai = computed(() => filteredData.value.reduce((s, r) => s + (parseFloat(r.Nilai) || 0), 0));
 
 const activeFiltersCount = computed(() => {
-  return (
-    Object.keys(activeColumnFilters.value).filter(
-      (k) => activeColumnFilters.value[k]?.length > 0
-    ).length +
-    Object.keys(activeTextFilters.value).filter((k) =>
-      activeTextFilters.value[k]?.trim()
-    ).length
-  );
+    let c = 0;
+    Object.keys(activeColumnFilters.value).forEach(k => { if (activeColumnFilters.value[k]?.length > 0) c++; });
+    Object.keys(activeTextFilters.value).forEach(k => { if (activeTextFilters.value[k]?.trim()) c++; });
+    return c;
 });
 
 const filteredData = computed(() => {
-  let result = [...data.value];
-
-  // Supplier filter (dropdown)
-  if (filterSupplier.value) {
-    const supplierName = supplierList.value.find(
-      (s: any) => s.kode === filterSupplier.value
-    )?.nama;
-    if (supplierName)
-      result = result.filter((r) => r.Supplier === supplierName);
-  }
-
-  // Global search
-  if (searchKeyword.value) {
-    const kw = searchKeyword.value.toLowerCase();
-    result = result.filter((row) =>
-      Object.values(row).some((val) => String(val).toLowerCase().includes(kw))
-    );
-  }
-
-  // Column filters
-  Object.keys(activeColumnFilters.value).forEach((field) => {
-    const values = activeColumnFilters.value[field];
-    if (values?.length > 0)
-      result = result.filter((row) => values.includes(String(row[field])));
-  });
-
-  // Text filters
-  Object.keys(activeTextFilters.value).forEach((field) => {
-    const val = activeTextFilters.value[field]?.toLowerCase();
-    if (val)
-      result = result.filter((row) =>
-        String(row[field] || "")
-          .toLowerCase()
-          .includes(val)
-      );
-  });
-
-  return result;
+    let r = [...data.value];
+    if (searchKeyword.value) { const kw = searchKeyword.value.toLowerCase(); r = r.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(kw))); }
+    Object.keys(activeColumnFilters.value).forEach(f => { const v = activeColumnFilters.value[f]; if (v?.length > 0) r = r.filter(row => v.includes(String(row[f]))); });
+    Object.keys(activeTextFilters.value).forEach(f => { const v = activeTextFilters.value[f]?.toLowerCase(); if (v) r = r.filter(row => String(row[f] || "").toLowerCase().includes(v)); });
+    return r;
 });
 
-// Methods
-const formatCurrency = (val: any) => {
-  if (!val && val !== 0) return "-";
-  return "Rp " + Math.round(parseFloat(val)).toLocaleString("id-ID");
-};
-const formatNumber = (val: any) => {
-  if (!val && val !== 0) return "-";
-  return Math.round(parseFloat(val)).toLocaleString("id-ID");
-};
-const formatPivotValue = (val: any) =>
-  pivotData.value === "Nilai" ? formatCurrency(val) : formatNumber(val);
-const formatDate = (d: Date): string => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+const formatCurrency = (v: any) => { if (!v && v !== 0) return "-"; return "Rp " + Math.round(parseFloat(v)).toLocaleString("id-ID"); };
+const formatNumber = (v: any) => { if (!v && v !== 0) return "-"; return Math.round(parseFloat(v)).toLocaleString("id-ID"); };
+const formatPivotValue = (val: any) => pivotData.value === "Nilai" ? formatCurrency(val) : formatNumber(val);
+const formatDate = (d: Date): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 const loadData = async () => {
-  loading.value = true;
-  try {
-    const res = await $api.get("/v1/report/pembelian-per-item", {
-      params: {
-        start_date: formatDate(startDate.value),
-        end_date: formatDate(endDate.value),
-      },
-    });
-    if (res.data.success) {
-      data.value = res.data.data;
-      buildFilterOptions();
-      buildPivot();
-      toast.add({
-        severity: "success",
-        summary: "Berhasil",
-        detail: `${data.value.length} data`,
-        life: 2000,
-      });
-    }
-  } catch (e: any) {
-    toast.add({
-      severity: "error",
-      summary: "Gagal",
-      detail: e.response?.data?.message || "Gagal",
-      life: 3000,
-    });
-  } finally {
-    loading.value = false;
-  }
+    loading.value = true;
+    try {
+        const res = await $api.get("/v1/report/pembelian-per-item", { params: { start_date: formatDate(startDate.value), end_date: formatDate(endDate.value) } });
+        if (res.data.success) { data.value = res.data.data; buildFilterOptions(); buildPivot(); }
+    } catch (e: any) { toast.add({ severity: "error", summary: "Gagal", detail: e.response?.data?.message || "Gagal", life: 3000 }); }
+    finally { loading.value = false; }
 };
 
-// Search
-let searchTimeout: any;
-const onSearchInput = () => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {}, 300);
-};
+const resetTextFilters = () => { filterableColumns.forEach(c => textFilters.value[c.field] = ""); activeTextFilters.value = {}; };
+const applyTextFilters = () => { activeTextFilters.value = {}; filterableColumns.forEach(c => { if (textFilters.value[c.field]?.trim()) activeTextFilters.value[c.field] = textFilters.value[c.field].trim(); }); showTextFilter.value = false; };
+const clearAllFilters = () => { searchKeyword.value = ""; activeColumnFilters.value = {}; activeTextFilters.value = {}; textFilters.value = {}; tempColumnFilters.value = {}; };
 
-// Text filters
-const resetTextFilters = () => {
-  filterableColumns.forEach((c) => (textFilters.value[c.field] = ""));
-  activeTextFilters.value = {};
-};
-const applyTextFilters = () => {
-  activeTextFilters.value = {};
-  filterableColumns.forEach((c) => {
-    if (textFilters.value[c.field]?.trim())
-      activeTextFilters.value[c.field] = textFilters.value[c.field].trim();
-  });
-};
-const clearAllFilters = () => {
-  searchKeyword.value = "";
-  activeColumnFilters.value = {};
-  activeTextFilters.value = {};
-  textFilters.value = {};
-  tempColumnFilters.value = {};
-};
-
-// Column filters
-const buildFilterOptions = () => {
-  filterableColumns.forEach((col) => {
-    const values = new Map<string, number>();
-    data.value.forEach((row) => {
-      const v = String(row[col.field] || "");
-      if (v) values.set(v, (values.get(v) || 0) + 1);
-    });
-    filterOptionsCache.value[col.field] = Array.from(values.entries())
-      .map(([v, c]) => ({ value: v, label: v, count: c }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  });
-};
-const setFilterOverlayRef = (f: string, el: any) => {
-  if (el) filterOverlays.value[f] = el;
-};
-const toggleColumnFilter = (col: any, event: Event) => {
-  const overlay = filterOverlays.value[col.field];
-  if (overlay) {
-    if (!tempColumnFilters.value[col.field])
-      tempColumnFilters.value[col.field] = [
-        ...(activeColumnFilters.value[col.field] || []),
-      ];
-    overlay.toggle(event);
-  }
-};
+const buildFilterOptions = () => { filterableColumns.forEach(col => { const m = new Map<string, number>(); data.value.forEach(r => { const v = String(r[col.field] || ""); if (v) m.set(v, (m.get(v) || 0) + 1); }); filterOptionsCache.value[col.field] = Array.from(m.entries()).map(([v, c]) => ({ value: v, label: v, count: c })).sort((a, b) => a.label.localeCompare(b.label)); }); };
+const setFilterOverlayRef = (f: string, el: any) => { if (el) filterOverlays.value[f] = el; };
+const openColumnFilter = (col: any, e: Event) => { const o = filterOverlays.value[col.field]; if (o) { if (!tempColumnFilters.value[col.field]) tempColumnFilters.value[col.field] = [...(activeColumnFilters.value[col.field] || [])]; o.toggle(e); } };
 const closeFilterPanel = (f: string) => filterOverlays.value[f]?.hide();
-const onFilterPanelHide = (f: string) => {
-  tempColumnFilters.value[f] = [...(activeColumnFilters.value[f] || [])];
-};
-const getFilteredOptions = (f: string) => {
-  const opts = filterOptionsCache.value[f] || [];
-  const term = filterSearchTerms.value[f]?.toLowerCase() || "";
-  return term ? opts.filter((o) => o.label.toLowerCase().includes(term)) : opts;
-};
-const selectAll = (f: string) => {
-  tempColumnFilters.value[f] = (filterOptionsCache.value[f] || []).map(
-    (o) => o.value
-  );
-};
-const clearFilter = (f: string) => {
-  tempColumnFilters.value[f] = [];
-};
+const onFilterPanelHide = (f: string) => { tempColumnFilters.value[f] = [...(activeColumnFilters.value[f] || [])]; };
+const getFilteredOptions = (f: string) => { const o = filterOptionsCache.value[f] || [], t = filterSearchTerms.value[f]?.toLowerCase() || ""; return t ? o.filter(opt => opt.label.toLowerCase().includes(t)) : o; };
+const selectAll = (f: string) => { tempColumnFilters.value[f] = (filterOptionsCache.value[f] || []).map(o => o.value); };
+const clearFilter = (f: string) => { tempColumnFilters.value[f] = []; };
 const hasColumnFilter = (f: string) => activeColumnFilters.value[f]?.length > 0;
-const applyColumnFilter = (f: string) => {
-  activeColumnFilters.value[f] = [...(tempColumnFilters.value[f] || [])];
-  closeFilterPanel(f);
-};
+const applyColumnFilter = (f: string) => { activeColumnFilters.value[f] = [...(tempColumnFilters.value[f] || [])]; closeFilterPanel(f); };
 
-// PIVOT BUILDER
 const buildPivot = () => {
-  const rows: Record<string, any> = {};
-  const colSet = new Set<string>();
-  let grandTotal = 0;
-
-  filteredData.value.forEach((item) => {
-    const rv = String(item[pivotRow.value] || "");
-    const cv = String(item[pivotCol.value] || "");
-    const dv = parseFloat(item[pivotData.value]) || 0;
-
-    colSet.add(cv);
-    if (!rows[rv]) rows[rv] = { label: rv, values: {}, total: 0 };
-    rows[rv].values[cv] = (rows[rv].values[cv] || 0) + dv;
-    rows[rv].total += dv;
-    grandTotal += dv;
-  });
-
-  const columns = Array.from(colSet).sort((a, b) => {
-    const na = parseInt(a),
-      nb = parseInt(b);
-    return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb;
-  });
-
-  const columnTotals: Record<string, number> = {};
-  columns.forEach((col) => {
-    columnTotals[col] = Object.values(rows).reduce(
-      (s: number, r: any) => s + (r.values[col] || 0),
-      0
-    );
-  });
-
-  pivotResult.value = {
-    columns,
-    rows: Object.values(rows),
-    columnTotals,
-    grandTotal,
-  };
-};
-
-// EXPORTS
-// Export Dialog state
-const exportDialog = ref(false);
-const exportTarget = ref<"grid" | "pivot">("grid");
-const exportType = ref<"excel" | "pdf" | "csv">("excel");
-
-// Override export buttons
-const exportExcel = () => {
-  exportType.value = "excel";
-  openExportDialog();
-};
-const exportPDF = () => {
-  exportType.value = "pdf";
-  openExportDialog();
-};
-const exportCSV = () => {
-  exportType.value = "csv";
-  openExportDialog();
-};
-
-const openExportDialog = () => {
-  if (data.value.length === 0) {
-    toast.add({
-      severity: "warn",
-      summary: "Peringatan",
-      detail: "Tidak ada data",
-      life: 2000,
+    const rows: Record<string, any> = {}; const colSet = new Set<string>(); let gt = 0;
+    filteredData.value.forEach(item => {
+        const rv = String(item[pivotRow.value] || ""), cv = String(item[pivotCol.value] || ""), dv = parseFloat(item[pivotData.value]) || 0;
+        colSet.add(cv); if (!rows[rv]) rows[rv] = { label: rv, values: {}, total: 0 }; rows[rv].values[cv] = (rows[rv].values[cv] || 0) + dv; rows[rv].total += dv; gt += dv;
     });
-    return;
-  }
-  exportTarget.value = activeTab.value === "pivot" ? "pivot" : "grid";
-  exportDialog.value = true;
+    const cols = Array.from(colSet).sort((a, b) => { const na = parseInt(a), nb = parseInt(b); return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb; });
+    const colTotals: Record<string, number> = {}; cols.forEach(c => { colTotals[c] = Object.values(rows).reduce((s: number, r: any) => s + (r.values[c] || 0), 0); });
+    pivotResult.value = { columns: cols, rows: Object.values(rows), columnTotals: colTotals, grandTotal: gt };
 };
 
-const proceedExport = () => {
-  exportDialog.value = false;
-  if (exportType.value === "excel") doExportExcel();
-  else if (exportType.value === "pdf") doExportPDF();
-  else if (exportType.value === "csv") doExportCSV();
-};
+const exportDialog = ref(false); const exportTarget = ref<"grid" | "pivot">("grid"); const exportType = ref<"excel" | "pdf" | "csv">("excel");
+const exportExcel = () => { exportType.value = "excel"; exportDialog.value = true; };
+const exportPDF = () => { exportType.value = "pdf"; exportDialog.value = true; };
+const exportCSV = () => { exportType.value = "csv"; exportDialog.value = true; };
 
-// ========== EXPORT EXCEL ==========
+const proceedExport = () => { exportDialog.value = false; if (exportType.value === "excel") doExportExcel(); else if (exportType.value === "pdf") doExportPDF(); else doExportCSV(); };
+
 const doExportExcel = async () => {
-  const ExcelJS = await import("exceljs");
-  const wb = new ExcelJS.Workbook();
-
-  const headerStyle: any = {
-    font: { bold: true, color: { argb: "FFFFFFFF" }, size: 11 },
-    fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF10B981" } },
-    alignment: { horizontal: "center", vertical: "middle", wrapText: true },
-    border: {
-      top: { style: "thin", color: { argb: "FF059669" } },
-      bottom: { style: "thin", color: { argb: "FF059669" } },
-      left: { style: "thin", color: { argb: "FF059669" } },
-      right: { style: "thin", color: { argb: "FF059669" } },
-    },
-  };
-  const dataStyle: any = {
-    font: { size: 10 },
-    border: {
-      top: { style: "thin", color: { argb: "FFD1D5DB" } },
-      bottom: { style: "thin", color: { argb: "FFD1D5DB" } },
-      left: { style: "thin", color: { argb: "FFD1D5DB" } },
-      right: { style: "thin", color: { argb: "FFD1D5DB" } },
-    },
-    alignment: { vertical: "middle" },
-  };
-  const numStyle: any = {
-    ...dataStyle,
-    alignment: { horizontal: "right", vertical: "middle" },
-    numFmt: "#,##0",
-  };
-
-  if (exportTarget.value === "grid") {
-    // 🔥 GRID VIEW - Clone data untuk hindari circular reference
-    const ws = wb.addWorksheet("Pembelian Per Item");
-
-    ws.mergeCells("A1:K1");
-    ws.getCell("A1").value = "LAPORAN PEMBELIAN PER ITEM";
-    ws.getCell("A1").style = { font: { bold: true, size: 14 } };
-    ws.getRow(1).height = 30;
-
-    ws.mergeCells("A2:K2");
-    ws.getCell("A2").value = `Periode: ${startDate.value.toLocaleDateString(
-      "id-ID"
-    )} - ${endDate.value.toLocaleDateString("id-ID")}`;
-    ws.getCell("A2").style = {
-      font: { size: 10, color: { argb: "FF6B7280" } },
-    };
-
-    const headerRow = ws.getRow(4);
-    headerRow.height = 25;
-    gridColumns.forEach((col, idx) => {
-      const cell = headerRow.getCell(idx + 1);
-      cell.value = col.header;
-      cell.style = headerStyle;
-    });
-
-    // 🔥 PAKAI filteredData.value (bukan computed langsung)
-    const exportData = [...filteredData.value];
-    exportData.forEach((row, i) => {
-      const dr = ws.getRow(5 + i);
-      gridColumns.forEach((col, idx) => {
-        const cell = dr.getCell(idx + 1);
-        // 🔥 Ambil value biasa (bukan computed)
-        const val = row[col.field];
-        if (col.field === "Nilai" || col.field === "Qty") {
-          cell.value = typeof val === "number" ? val : parseFloat(val) || 0;
-          cell.style = numStyle;
-        } else {
-          cell.value = String(val ?? "");
-          cell.style = dataStyle;
-        }
-      });
-    });
-
-    ws.getColumn(1).width = 8;
-    ws.getColumn(2).width = 8;
-    ws.getColumn(3).width = 14;
-    ws.getColumn(4).width = 12;
-    ws.getColumn(5).width = 28;
-    ws.getColumn(6).width = 12;
-    ws.getColumn(7).width = 30;
-    ws.getColumn(8).width = 8;
-    ws.getColumn(9).width = 14;
-    ws.getColumn(10).width = 10;
-    ws.getColumn(11).width = 16;
-
-    ws.autoFilter = {
-      from: { row: 4, column: 1 },
-      to: { row: 4 + exportData.length, column: 11 },
-    };
-    ws.views = [{ state: "frozen", ySplit: 4 }];
-  } else {
-    // 🔥 PIVOT VIEW
-    const ws = wb.addWorksheet("Pivot");
-
-    ws.mergeCells("A1:E1");
-    ws.getCell(
-      "A1"
-    ).value = `PIVOT: ${pivotRowLabel.value} x ${pivotCol.value} (${pivotData.value})`;
-    ws.getCell("A1").style = { font: { bold: true, size: 14 } };
-    ws.getRow(1).height = 30;
-
-    const pivotHeaderRow = ws.getRow(3);
-    pivotHeaderRow.getCell(1).value = pivotRowLabel.value;
-    pivotHeaderRow.getCell(1).style = headerStyle;
-
-    // 🔥 Clone columns
-    const cols = [...pivotResult.value.columns];
-    cols.forEach((col, idx) => {
-      const cell = pivotHeaderRow.getCell(idx + 2);
-      cell.value = String(col);
-      cell.style = headerStyle;
-    });
-
-    const totalCell = pivotHeaderRow.getCell(cols.length + 2);
-    totalCell.value = "Total";
-    totalCell.style = headerStyle;
-
-    // 🔥 Clone rows
-    const rows = [...pivotResult.value.rows];
-    rows.forEach((row, i) => {
-      const dr = ws.getRow(4 + i);
-      dr.getCell(1).value = String(row.label);
-      dr.getCell(1).style = { ...dataStyle, font: { bold: true } };
-
-      cols.forEach((col, idx) => {
-        const cell = dr.getCell(idx + 2);
-        cell.value = Number(row.values[col]) || 0;
-        cell.style = numStyle;
-      });
-
-      const totalC = dr.getCell(cols.length + 2);
-      totalC.value = Number(row.total) || 0;
-      totalC.style = { ...numStyle, font: { bold: true } };
-    });
-
-    ws.getColumn(1).width = 28;
-  }
-
-  const buf = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buf], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `Laporan_Pembelian_Per_Item_${formatDate(new Date())}${
-    exportTarget.value === "pivot" ? "_Pivot" : ""
-  }.xlsx`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast.add({
-    severity: "success",
-    summary: "Export Excel",
-    detail: "Berhasil",
-    life: 2000,
-  });
+    const ExcelJS = await import("exceljs"); const wb = new ExcelJS.Workbook();
+    const hs: any = { font: { bold: true, color: { argb: "FFFFFFFF" }, size: 10 }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF10B981" } }, alignment: { horizontal: "center", vertical: "middle" } };
+    const ds: any = { font: { size: 9 } }, ns: any = { ...ds, alignment: { horizontal: "right" }, numFmt: "#,##0" };
+    if (exportTarget.value === "grid") {
+        const ws = wb.addWorksheet("Pembelian Per Item");
+        ws.mergeCells("A1:K1"); ws.getCell("A1").value = "LAPORAN PEMBELIAN PER ITEM"; ws.getCell("A1").style = { font: { bold: true, size: 14 } };
+        ws.getRow(1).height = 28; ws.getRow(4).height = 22;
+        gridColumns.forEach((c, i) => { const cell = ws.getRow(4).getCell(i + 1); cell.value = c.header; cell.style = hs; });
+        filteredData.value.forEach((r, i) => { const dr = ws.getRow(5 + i); gridColumns.forEach((c, ci) => { const cell = dr.getCell(ci + 1); const isNum = c.field === "Nilai" || c.field === "Qty"; cell.value = isNum ? (parseFloat(r[c.field]) || 0) : String(r[c.field] ?? ""); cell.style = isNum ? ns : ds; }); });
+        ws.autoFilter = { from: "A4", to: `K${4 + filteredData.value.length}` }; ws.views = [{ state: "frozen", ySplit: 4 }];
+    } else {
+        const ws = wb.addWorksheet("Pivot");
+        ws.getCell("A1").value = `PIVOT: ${pivotRowLabel.value} x ${pivotCol.value} (${pivotData.value})`; ws.getCell("A1").style = { font: { bold: true, size: 14 } };
+        ws.getRow(3).getCell(1).value = pivotRowLabel.value; ws.getRow(3).getCell(1).style = hs;
+        pivotResult.value.columns.forEach((c, i) => { const cell = ws.getRow(3).getCell(i + 2); cell.value = String(c); cell.style = hs; });
+        ws.getRow(3).getCell(pivotResult.value.columns.length + 2).value = "Total"; ws.getRow(3).getCell(pivotResult.value.columns.length + 2).style = hs;
+        pivotResult.value.rows.forEach((r, i) => { const dr = ws.getRow(4 + i); dr.getCell(1).value = r.label; dr.getCell(1).style = { ...ds, font: { bold: true } }; pivotResult.value.columns.forEach((c, ci) => { const cell = dr.getCell(ci + 2); cell.value = r.values[c] || 0; cell.style = ns; }); dr.getCell(pivotResult.value.columns.length + 2).value = r.total; dr.getCell(pivotResult.value.columns.length + 2).style = { ...ns, font: { bold: true } }; });
+    }
+    const buf = await wb.xlsx.writeBuffer(); const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `Pembelian_Per_Item_${formatDate(new Date())}.xlsx`; a.click(); URL.revokeObjectURL(url);
+    toast.add({ severity: "success", summary: "Excel", detail: "Berhasil", life: 2000 });
 };
 
-// ========== EXPORT CSV ==========
 const doExportCSV = () => {
-  let csv = "\uFEFF";
-
-  if (exportTarget.value === "grid") {
-    const cols = gridColumns.map((c) => c.field);
-    csv += gridColumns.map((c) => `"${c.header}"`).join(",") + "\n";
-    filteredData.value.forEach(
-      (row) =>
-        (csv +=
-          cols
-            .map((c) => `"${String(row[c] || "").replace(/"/g, '""')}"`)
-            .join(",") + "\n")
-    );
-  } else {
-    csv += `"${pivotRowLabel}","${pivotResult.value.columns.join(
-      '","'
-    )}","Total"\n`;
-    pivotResult.value.rows.forEach((row) => {
-      csv += `"${row.label}","${pivotResult.value.columns
-        .map((c: string) => row.values[c] || 0)
-        .join('","')}","${row.total}"\n`;
-    });
-  }
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `Laporan_Pembelian_Per_Item_${formatDate(new Date())}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast.add({
-    severity: "success",
-    summary: "Export CSV",
-    detail: "Berhasil",
-    life: 2000,
-  });
+    let csv = "\uFEFF";
+    if (exportTarget.value === "grid") { csv += gridColumns.map(c => `"${c.header}"`).join(",") + "\n"; filteredData.value.forEach(r => csv += gridColumns.map(c => `"${String(r[c.field] || "").replace(/"/g, '""')}"`).join(",") + "\n"); }
+    else { csv += `"${pivotRowLabel}","${pivotResult.value.columns.join('","')}","Total"\n`; pivotResult.value.rows.forEach(r => csv += `"${r.label}","${pivotResult.value.columns.map((c: string) => r.values[c] || 0).join('","')}","${r.total}"\n`); }
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `Pembelian_Per_Item_${formatDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url);
+    toast.add({ severity: "success", summary: "CSV", detail: "Berhasil", life: 2000 });
 };
 
-// ========== EXPORT PDF ==========
 const doExportPDF = () => {
-  const today = new Date().toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-  const period = `${startDate.value.toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  })} - ${endDate.value.toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  })}`;
-
-  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Laporan</title>
-    <style>
-        body { font-family: Arial; padding: 20px; }
-        h1 { font-size: 18px; text-align: center; color: #059669; }
-        .period { text-align: center; font-size: 12px; color: #6b7280; margin-bottom: 15px; }
-        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 10px; }
-        th { background: #10b981; color: white; padding: 6px 8px; border: 1px solid #059669; font-size: 9px; text-transform: uppercase; }
-        td { padding: 5px 8px; border: 1px solid #e5e7eb; }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-    </style></head><body>
-    <h1>Laporan Pembelian Per Item</h1>
-    <div class="period">Periode: ${period}</div>`;
-
-  if (exportTarget.value === "grid") {
-    html += `<table><thead><tr>${gridColumns
-      .map((c) => `<th>${c.header}</th>`)
-      .join("")}</tr></thead><tbody>`;
-    filteredData.value.forEach((row) => {
-      html += `<tr>${gridColumns
-        .map((c) => {
-          const val = row[c.field] || "";
-          const align =
-            c.align === "right"
-              ? "text-right"
-              : c.align === "center"
-              ? "text-center"
-              : "";
-          return `<td class="${align}">${val}</td>`;
-        })
-        .join("")}</tr>`;
-    });
-    html += `</tbody></table>`;
-  } else {
-    html += `<table><thead><tr><th>${pivotRowLabel}</th>${pivotResult.value.columns
-      .map((c: string) => `<th>${c}</th>`)
-      .join("")}<th>Total</th></tr></thead><tbody>`;
-    pivotResult.value.rows.forEach((row) => {
-      html += `<tr><td><strong>${
-        row.label
-      }</strong></td>${pivotResult.value.columns
-        .map(
-          (c: string) =>
-            `<td class="text-right">${formatPivotValue(row.values[c])}</td>`
-        )
-        .join("")}<td class="text-right"><strong>${formatPivotValue(
-        row.total
-      )}</strong></td></tr>`;
-    });
-    html += `<tr style="background:#fef3c7;font-weight:700"><td>TOTAL</td>${pivotResult.value.columns
-      .map(
-        (c: string) =>
-          `<td class="text-right">${formatPivotValue(
-            pivotResult.value.columnTotals[c]
-          )}</td>`
-      )
-      .join("")}<td class="text-right">${formatPivotValue(
-      pivotResult.value.grandTotal
-    )}</td></tr>`;
-    html += `</tbody></table>`;
-  }
-
-  html += `<p style="text-align:right;font-size:9px;color:#9ca3af;margin-top:20px">Dicetak: ${today}</p></body></html>`;
-
-  const win = window.open("", "_blank", "width=1000,height=700");
-  if (win) {
-    win.document.write(html);
-    win.document.close();
-  }
-  toast.add({
-    severity: "success",
-    summary: "Preview PDF",
-    detail: "Gunakan Print > Save as PDF",
-    life: 3000,
-  });
+    const period = `${startDate.value.toLocaleDateString("id-ID")} - ${endDate.value.toLocaleDateString("id-ID")}`;
+    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial;padding:12px;font-size:8px}h1{font-size:13px;text-align:center;color:#059669}table{width:100%;border-collapse:collapse}th{background:#10b981;color:#fff;padding:3px;border:1px solid #059669;font-size:6px}td{padding:2px 3px;border:1px solid #e5e7eb;font-size:7px}.r{text-align:right}</style></head><body><h1>Pembelian Per Item</h1><p style="text-align:center;color:#6b7280">${period}</p>`;
+    if (exportTarget.value === "grid") { html += `<table><thead><tr>${gridColumns.map(c => `<th>${c.header}</th>`).join("")}</tr></thead><tbody>`; filteredData.value.forEach(r => html += `<tr>${gridColumns.map(c => `<td class="${c.align === 'right' ? 'r' : ''}">${c.field === 'Nilai' ? formatCurrency(r[c.field]) : c.field === 'Qty' ? formatNumber(r[c.field]) : r[c.field] || ''}</td>`).join("")}</tr>`); html += `</tbody></table>`; }
+    else { html += `<table><thead><tr><th>${pivotRowLabel}</th>${pivotResult.value.columns.map(c => `<th>${c}</th>`).join("")}<th>Total</th></tr></thead><tbody>`; pivotResult.value.rows.forEach(r => html += `<tr><td><strong>${r.label}</strong></td>${pivotResult.value.columns.map(c => `<td class="r">${formatPivotValue(r.values[c])}</td>`).join("")}<td class="r"><strong>${formatPivotValue(r.total)}</strong></td></tr>`); html += `</tbody></table>`; }
+    html += `</body></html>`;
+    const win = window.open("", "_blank", "width=1000,height=700"); if (win) { win.document.write(html); win.document.close(); }
+    toast.add({ severity: "success", summary: "Print", detail: "Gunakan Print > Save as PDF", life: 3000 });
 };
 
-// Auto-load on mount
-onMounted(async () => {
-  try {
-    const res = await $api.get("/supplier");
-    supplierList.value = res.data.data || [];
-  } catch (e) {
-    console.error(e);
-  }
-  resetTextFilters();
-  loadData(); // ✅ Auto-load
-});
+onMounted(() => { resetTextFilters(); loadData(); });
 </script>
 
 <style lang="scss" scoped>
-.report-page {
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.report-page { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.main-card { flex: 1; display: flex; flex-direction: column; background: var(--surface-card); border-radius: 0.5rem; border: 1px solid var(--surface-border); overflow: hidden; min-height: 0; }
+
+.toolbar { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-50); flex-shrink: 0; flex-wrap: wrap; }
+.search-box { display: flex; align-items: center; background: var(--surface-0); border: 1px solid var(--surface-border); border-radius: 0.35rem; padding: 0 0.35rem; height: 1.85rem; width: 200px; flex-shrink: 0; i { font-size: 0.7rem; color: var(--text-color-secondary); } .clear-btn { cursor: pointer; margin-left: auto; } .search-input { flex: 1; border: none; background: transparent; padding: 0 0.3rem; font-size: 0.75rem; outline: none; color: var(--text-color); &::placeholder { color: var(--text-color-secondary); } } }
+.filter-item { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; .filter-label { font-size: 0.68rem; font-weight: 600; color: var(--text-color-secondary); white-space: nowrap; } .date-sep { font-size: 0.68rem; color: var(--text-color-secondary); } :deep(.p-datepicker) { width: 125px; .p-datepicker-input { font-size: 0.73rem; height: 1.85rem; padding: 0 0.35rem; } } }
+.filter-active { background: var(--primary-100) !important; color: var(--primary-700) !important; }
+.actions { display: flex; gap: 0.1rem; margin-left: auto; flex-shrink: 0; align-items: center; :deep(.p-button) { width: 1.65rem !important; height: 1.65rem !important; } }
+
+.text-filter-panel { padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-0); display: flex; align-items: flex-end; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; .text-filter-grid { display: flex; gap: 0.35rem; flex-wrap: wrap; flex: 1; } .text-filter-input { height: 1.75rem; padding: 0 0.4rem; border: 1px solid var(--surface-border); border-radius: 0.3rem; font-size: 0.72rem; outline: none; width: 140px; } .text-filter-actions { display: flex; gap: 0.25rem; flex-shrink: 0; } }
+
+.tab-buttons { display: flex; border-bottom: 2px solid var(--surface-border); flex-shrink: 0; button { padding: 0.45rem 1.25rem; border: none; background: transparent; font-size: 0.78rem; font-weight: 500; color: var(--text-color-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; i { margin-right: 0.4rem; font-size: 0.8rem; } &:hover { color: var(--primary-600); } &.active { color: var(--primary-600); border-bottom-color: var(--primary-500); font-weight: 600; } } }
+
+.table-area { flex: 1; overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
+
+.data-table { flex: 1; display: flex; flex-direction: column; min-height: 0;
+    :deep(.p-datatable-wrapper) { flex: 1; overflow: auto; min-height: 0; }
+    :deep(.p-datatable-thead > tr > th) { background: var(--surface-50); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-color-secondary); padding: 0.35rem 0.45rem !important; border-bottom: 2px solid var(--surface-border); white-space: nowrap; letter-spacing: 0.03em; position: sticky; top: 0; z-index: 2; }
+    :deep(.p-datatable-tbody > tr > td) { padding: 0.25rem 0.45rem; font-size: 0.75rem; white-space: nowrap; }
+    :deep(.p-datatable-tbody > tr:hover) { background: var(--surface-50); }
+    :deep(.p-datatable-tfoot > tr > td) { padding: 0.35rem 0.45rem; font-size: 0.72rem; font-weight: 700; background: var(--surface-100); border-top: 2px solid var(--primary-300); color: var(--primary-700); white-space: nowrap; position: sticky; bottom: 0; z-index: 2; }
+    :deep(.p-paginator) { padding: 0.25rem 0.4rem; font-size: 0.7rem; border-top: 1px solid var(--surface-border); flex-shrink: 0; background: var(--surface-card); .p-paginator-page, .p-paginator-first, .p-paginator-prev, .p-paginator-next, .p-paginator-last { min-width: 1.5rem; height: 1.5rem; font-size: 0.7rem; } }
+    :deep(.p-sortable-column-icon) { font-size: 0.6rem !important; width: 1.25rem; height: 1.25rem; display: inline-flex; align-items: center; justify-content: center; }
 }
 
-.report-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  background: var(--surface-card);
-  border-radius: 0.75rem;
-  border: 1px solid var(--surface-border);
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-  .header-icon {
-    width: 2.75rem;
-    height: 2.75rem;
-    background: var(--primary-50);
-    border-radius: 0.625rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--primary-600);
-    font-size: 1.25rem;
-  }
-  h1 {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-color);
-    margin: 0;
-  }
-  p {
-    font-size: 0.813rem;
-    color: var(--text-color-secondary);
-    margin: 0.25rem 0 0 0;
-  }
-  .header-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-}
+.col-header { display: flex; align-items: center; width: 100%; .col-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .col-icons { display: flex; align-items: center; gap: 0.15rem; flex-shrink: 0; margin-left: auto; } }
+.col-filter-btn { width: 1.25rem; height: 1.25rem; border-radius: 0.2rem; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.12s; flex-shrink: 0; color: var(--text-color-secondary); i { font-size: 0.6rem; } &:hover { background: var(--surface-200); } &.active { opacity: 1; background: var(--primary-100); color: var(--primary-700); } }
+.col-header:hover .col-filter-btn { opacity: 1; }
 
-.report-card {
-  background: var(--surface-card);
-  border-radius: 0.75rem;
-  border: 1px solid var(--surface-border);
-  overflow: hidden;
-}
+.text-currency { font-weight: 600; color: var(--primary-600); }
+.text-number { font-weight: 500; }
+.footer-label { font-weight: 700; color: var(--primary-700); }
+.footer-value { font-weight: 700; color: var(--primary-700); }
 
-// Export Dialog
-.export-dialog-content {
-  .export-dialog-text {
-    font-size: 0.9rem;
-    color: var(--text-color-secondary);
-    margin-bottom: 1.25rem;
-  }
+.mini-filter { width: 230px; display: flex; flex-direction: column; .mini-filter-head { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--surface-border); font-weight: 600; font-size: 0.76rem; } .mini-filter-search { position: relative; padding: 0.35rem 0.65rem; border-bottom: 1px solid var(--surface-border); i { position: absolute; left: 1.05rem; top: 50%; transform: translateY(-50%); font-size: 0.65rem; } .mini-filter-input { width: 100%; height: 1.55rem; padding: 0 0.35rem 0 1.5rem; border: 1px solid var(--surface-border); border-radius: 0.25rem; font-size: 0.7rem; outline: none; } } .mini-filter-actions { display: flex; justify-content: space-between; padding: 0.25rem 0.65rem; border-bottom: 1px solid var(--surface-border); button { background: none; border: none; font-size: 0.65rem; color: var(--primary-600); cursor: pointer; font-weight: 500; } } .mini-filter-list { max-height: 160px; overflow-y: auto; padding: 0.15rem 0; } .mini-filter-opt { display: flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; cursor: pointer; font-size: 0.7rem; &:hover { background: var(--surface-50); } input[type="checkbox"] { width: 0.75rem; height: 0.75rem; accent-color: var(--primary-500); } span { flex: 1; } small { color: var(--text-color-secondary); font-size: 0.62rem; } } .mini-filter-empty { padding: 1.25rem; text-align: center; color: var(--text-color-secondary); font-size: 0.7rem; } .mini-filter-foot { padding: 0.35rem 0.65rem; border-top: 1px solid var(--surface-border); } }
 
-  .export-options {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
+.pivot-select { width: 130px; :deep(.p-select) { height: 1.85rem; .p-select-label { font-size: 0.73rem; } } }
+.pivot-controls { display: flex; gap: 0.5rem; padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--surface-border); background: var(--surface-0); flex-shrink: 0; flex-wrap: wrap; }
+.pivot-table-wrapper { flex: 1; overflow: auto; min-height: 0; padding: 0.5rem; }
+.pivot-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; th, td { padding: 0.35rem 0.5rem; border: 1px solid var(--surface-border); text-align: right; } .pivot-corner, .pivot-row-header { text-align: left; font-weight: 600; background: var(--surface-50); } .pivot-col-header { background: var(--primary-50); color: var(--primary-700); font-weight: 600; } .pivot-total-header, .pivot-total-cell { font-weight: 700; background: var(--surface-100); } .pivot-grand-total { font-weight: 700; background: var(--primary-100); color: var(--primary-700); } }
 
-  .export-option {
-    display: flex;
-    align-items: center;
-    gap: 0.875rem;
-    padding: 1rem 1.25rem;
-    border: 2px solid var(--surface-border);
-    border-radius: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
+.export-option-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 2px solid var(--surface-border); border-radius: 0.625rem; cursor: pointer; transition: all 0.15s; + .export-option-card { margin-top: 0.5rem; } .export-option-icon { width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--surface-100); i { font-size: 1.2rem; } } .export-option-info { flex: 1; strong { display: block; font-size: 0.85rem; } small { font-size: 0.7rem; color: var(--text-color-secondary); } } .check-icon { font-size: 1.2rem; color: var(--primary-500); opacity: 0; } &:hover { border-color: var(--primary-300); background: var(--primary-50); } &.active { border-color: var(--primary-500); background: var(--primary-50); .check-icon { opacity: 1; } } }
 
-    .option-radio {
-      flex-shrink: 0;
+.table-empty { display: flex; flex-direction: column; align-items: center; padding: 2.5rem; color: var(--text-color-secondary); gap: 0.5rem; i { font-size: 2rem; } span { font-size: 0.8rem; } }
 
-      .radio-circle {
-        width: 1.25rem;
-        height: 1.25rem;
-        border-radius: 50%;
-        border: 2px solid #cbd5e1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-
-        &.checked {
-          border-color: var(--primary-500);
-          background: var(--primary-500);
-          position: relative;
-
-          &::after {
-            content: "";
-            width: 0.5rem;
-            height: 0.5rem;
-            border-radius: 50%;
-            background: white;
-            position: absolute;
-          }
-        }
-      }
-    }
-
-    .option-icon {
-      flex-shrink: 0;
-      width: 2.5rem;
-      height: 2.5rem;
-      background: var(--surface-100);
-      border-radius: 0.625rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      i {
-        font-size: 1.25rem;
-        color: var(--text-color-secondary);
-      }
-    }
-
-    .option-text {
-      flex: 1;
-
-      strong {
-        display: block;
-        font-size: 0.9rem;
-        color: var(--text-color);
-        margin-bottom: 0.15rem;
-      }
-
-      small {
-        font-size: 0.75rem;
-        color: var(--text-color-secondary);
-      }
-    }
-
-    &:hover {
-      border-color: var(--primary-300);
-      background: var(--primary-50);
-
-      .option-icon {
-        background: white;
-      }
-    }
-
-    &.active {
-      border-color: var(--primary-500);
-      background: var(--primary-50);
-
-      .option-icon {
-        background: var(--primary-100);
-
-        i {
-          color: var(--primary-600);
-        }
-      }
-
-      .option-text strong {
-        color: var(--primary-700);
-      }
-    }
-  }
-}
-
-// Toolbar
-.browse-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-50);
-  .toolbar-left {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-  .search-input {
-    width: 260px;
-    background: var(--surface-0);
-  }
-  .active-filters {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.2rem 0.5rem 0.2rem 0.75rem;
-    background: var(--surface-200);
-    border-radius: 1rem;
-    font-size: 0.75rem;
-    color: var(--text-color-secondary);
-    i {
-      color: var(--primary-600);
-    }
-  }
-  .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-  .filter-active {
-    background: var(--primary-100) !important;
-    color: var(--primary-700) !important;
-  }
-}
-
-// Text filter panel
-.text-filter-panel {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-0);
-  .text-filter-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-  }
-  .text-filter-item {
-    label {
-      display: block;
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: var(--text-color-secondary);
-      margin-bottom: 0.2rem;
-    }
-  }
-  .text-filter-footer {
-    display: flex;
-    justify-content: space-between;
-  }
-}
-
-// Date filter
-.date-filter-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 1rem;
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--surface-border);
-  background: var(--surface-0);
-  flex-wrap: wrap;
-
-  .date-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-}
-
-// Tab Buttons
-.tab-buttons {
-  display: flex;
-  gap: 0;
-  border-bottom: 2px solid var(--surface-border);
-  button {
-    padding: 0.6rem 1.5rem;
-    border: none;
-    background: transparent;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-color-secondary);
-    cursor: pointer;
-    transition: all 0.2s;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    i {
-      margin-right: 0.5rem;
-    }
-    &:hover {
-      color: var(--primary-600);
-    }
-    &.active {
-      color: var(--primary-600);
-      border-bottom-color: var(--primary-500);
-      font-weight: 600;
-    }
-  }
-}
-
-// Grid Table
-.report-table {
-  :deep(.p-datatable-thead > tr > th) {
-    background: var(--surface-50);
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-    color: var(--text-color-secondary);
-    padding: 0.35rem 0.5rem !important;
-    height: 2rem !important;
-    border-bottom: 2px solid var(--surface-border);
-  }
-  :deep(.p-datatable-tbody > tr > td) {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.8rem;
-  }
-}
-
-// Column Header
-.column-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.25rem;
-  width: 100%;
-
-  .column-title {
-    flex: 1;
-    font-size: 0.7rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .filter-active {
-    opacity: 1 !important;
-    background: var(--primary-100) !important;
-    color: var(--primary-700) !important;
-  }
-
-  :deep(.p-button) {
-    width: 1.5rem !important;
-    height: 1.5rem !important;
-    flex-shrink: 0;
-    margin-left: auto;
-    opacity: 0;
-    transition: opacity 0.15s;
-    .pi {
-      font-size: 0.75rem !important;
-    }
-  }
-
-  &:hover :deep(.p-button) {
-    opacity: 1;
-  }
-}
-
-.currency-text {
-  font-weight: 600;
-  color: var(--primary-600);
-}
-
-// Filter Panel
-.filter-panel {
-  width: 280px;
-  max-height: 450px;
-  display: flex;
-  flex-direction: column;
-  .filter-panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--surface-border);
-    font-weight: 600;
-    font-size: 0.875rem;
-  }
-  .filter-panel-search {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--surface-border);
-  }
-  .filter-panel-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid var(--surface-border);
-  }
-  .filter-panel-list {
-    flex: 1;
-    overflow-y: auto;
-    max-height: 250px;
-    padding: 0.5rem 0;
-    .filter-option {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      &:hover {
-        background: var(--surface-50);
-      }
-      .filter-label {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-size: 0.813rem;
-        cursor: pointer;
-        margin: 0;
-        .option-count {
-          color: var(--text-color-secondary);
-          font-size: 0.75rem;
-        }
-      }
-    }
-    .filter-empty {
-      padding: 2rem 1rem;
-      text-align: center;
-      color: var(--text-color-secondary);
-      font-size: 0.813rem;
-    }
-  }
-  .filter-panel-footer {
-    padding: 0.75rem 1rem;
-    border-top: 1px solid var(--surface-border);
-  }
-}
-
-// Footer Summary
-.footer-summary-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1rem;
-  padding: 0.4rem 0.75rem;
-  .footer-value {
-    font-weight: 700;
-    font-size: 0.8rem;
-  }
-}
-
-// Pivot
-.pivot-container {
-  padding: 1rem;
-}
-.pivot-controls {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-end;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-  .pivot-control {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    label {
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: var(--text-color-secondary);
-      text-transform: uppercase;
-    }
-  }
-}
-.pivot-table-wrapper {
-  overflow-x: auto;
-}
-.pivot-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8rem;
-  th,
-  td {
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--surface-border);
-    text-align: right;
-  }
-  .pivot-corner,
-  .pivot-row-header {
-    text-align: left;
-    font-weight: 600;
-    background: var(--surface-50);
-  }
-  .pivot-col-header {
-    background: var(--primary-50);
-    color: var(--primary-700);
-    font-weight: 600;
-  }
-  .pivot-total-header,
-  .pivot-total-cell {
-    font-weight: 700;
-    background: var(--surface-100);
-  }
-  .pivot-grand-total {
-    font-weight: 700;
-    background: var(--primary-100);
-    color: var(--primary-700);
-    font-size: 0.85rem;
-  }
-  .pivot-cell {
-    color: var(--text-color);
-  }
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 3rem;
-  color: var(--text-color-secondary);
-  i {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
-  }
-}
-.w-40 {
-  width: 10rem;
-}
-.w-48 {
-  width: 12rem;
-}
-
-@media (max-width: 768px) {
-  .report-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-    .header-actions {
-      width: 100%;
-      button {
-        flex: 1;
-      }
-    }
-  }
-  .browse-toolbar {
-    flex-direction: column;
-    gap: 0.75rem;
-    .search-input {
-      width: 100%;
-    }
-  }
-  .text-filter-panel .text-filter-grid {
-    grid-template-columns: 1fr;
-  }
-}
-.date-filter-row {
-  display: flex;
-  align-items: center; /* ini yang bikin sejajar vertikal */
-  gap: 16px;
-}
-
-.date-item {
-  display: flex;
-  align-items: center; /* label dan input sejajar */
-  gap: 8px;
-}
-
-.date-item label {
-  font-size: 0.7rem;
-  white-space: nowrap; /* biar label tidak wrap ke bawah */
-  font-weight: 600;
-}
+@media (max-width: 900px) { .toolbar { gap: 0.35rem; padding: 0.35rem 0.5rem; } }
+@media (max-width: 640px) { .search-box { width: 100%; } .filter-item { flex-wrap: wrap; .filter-label { width: 100%; } } .text-filter-input { width: 100%; } }
+@media (max-width: 768px) { .data-table { :deep(.p-datatable-thead > tr > th) { font-size: 0.63rem; padding: 0.25rem 0.35rem !important; } :deep(.p-datatable-tbody > tr > td) { font-size: 0.7rem; padding: 0.2rem 0.35rem; } } }
 </style>
