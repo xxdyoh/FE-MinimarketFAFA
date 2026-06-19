@@ -42,9 +42,9 @@ export default defineNuxtRouteMiddleware((to) => {
     } else if (to.path.includes('/laporan/member')) {
         title = 'Member'
         icon = 'pi pi-users'
-    } else if (to.path.includes('/laporan/koreksi-stok')) {
-        title = 'Laporan Koreksi Stock'
-        icon = 'pi pi-wrench'
+	  } else if (to.path.includes('/laporan/pembayaranlain')) {
+        title = 'Biaya biaya'
+        icon = 'pi pi-dollar'	
     }
 
     tabsStore.openTab({
