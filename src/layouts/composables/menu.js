@@ -58,6 +58,11 @@ const model = ref([
             { label: 'Lap Penjualan by Nota', icon: 'pi pi-shopping-bag', to: '/laporan/penjualan' },
             { label: 'Lap Penjualan Per Item', icon: 'pi pi-list', to: '/laporan/penjualan-per-item' },
             { label: 'Kartu Stock', icon: 'pi pi-chart-line', to: '/laporan/kartu-stock' },
+			 {
+                label: 'Koreksi Stok',
+                icon: 'pi pi-wrench',
+                to: '/laporan/koreksi-stok'
+            },
 			{ label: 'Biaya Lain Lain', icon: 'pi pi-dollar', to: '/laporan/pembayaranlain' },
         ]
     },
